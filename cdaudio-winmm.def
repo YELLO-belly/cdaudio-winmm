@@ -1,6 +1,11 @@
 LIBRARY winmm.dll
 
 EXPORTS
+    mciDriverNotify                  = fake_mciDriverNotify
+    mciDriverYield                   = fake_mciDriverYield
+    mciGetDriverData                 = fake_mciGetDriverData
+    mciSetDriverData                 = fake_mciSetDriverData
+
     auxGetVolume                     = fake_auxGetVolume
     auxSetVolume                     = fake_auxSetVolume
     auxGetDevCapsA                   = fake_auxGetDevCapsA
