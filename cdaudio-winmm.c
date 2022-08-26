@@ -38,6 +38,10 @@ int value;
 int mode = 1; /* 1=stopped, 2=playing */
 /********/
 
+/* MCI Relay declarations: */
+MCIERROR WINAPI relay_mciSendCommandA(MCIDEVICEID a0, UINT a1, DWORD a2, DWORD a3);
+MCIERROR WINAPI relay_mciSendStringA(LPCSTR a0, LPSTR a1, UINT a2, HWND a3);
+
 #define MAGIC_DEVICEID 0xBEEF
 
 #ifdef _DEBUG
@@ -193,6 +197,7 @@ MCIERROR WINAPI fake_mciSendCommandA(MCIDEVICEID IDDevice, UINT uMsg, DWORD_PTR 
 				parms->wDeviceID = MAGIC_DEVICEID;
 				return 0;
 			}
+			else return relay_mciSendCommandA(IDDevice, uMsg, fdwCommand, dwParam); /* Added MCI relay */
 		}
 
 		if (fdwCommand & MCI_OPEN_TYPE && !(fdwCommand & MCI_OPEN_TYPE_ID))
@@ -206,6 +211,7 @@ MCIERROR WINAPI fake_mciSendCommandA(MCIDEVICEID IDDevice, UINT uMsg, DWORD_PTR 
 				parms->wDeviceID = MAGIC_DEVICEID;
 				return 0;
 			}
+			else return relay_mciSendCommandA(IDDevice, uMsg, fdwCommand, dwParam); /* Added MCI relay */
 		}
 	}
 
@@ -543,8 +549,9 @@ MCIERROR WINAPI fake_mciSendCommandA(MCIDEVICEID IDDevice, UINT uMsg, DWORD_PTR 
 		return 0;
 	}
 
+	else return relay_mciSendCommandA(IDDevice, uMsg, fdwCommand, dwParam); /* Added MCI relay */
 	/* fallback */
-	return MCIERR_UNRECOGNIZED_COMMAND;
+	/* return MCIERR_UNRECOGNIZED_COMMAND; */
 
 }
 
@@ -746,7 +753,8 @@ MCIERROR WINAPI fake_mciSendStringA(LPCTSTR cmd, LPTSTR ret, UINT cchReturn, HAN
 		}
 	}
 
-	return 0;
+	return relay_mciSendStringA(cmd, ret, cchReturn, hwndCallback); /* Added MCI relay */
+	/* return 0; */
 }
 
 UINT WINAPI fake_auxGetNumDevs()
