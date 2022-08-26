@@ -217,6 +217,33 @@ MCIERROR WINAPI fake_mciSendCommandA(MCIDEVICEID IDDevice, UINT uMsg, DWORD_PTR 
 
 	if (IDDevice == MAGIC_DEVICEID || IDDevice == 0 || IDDevice == 0xFFFFFFFF)
 	{
+
+		if (uMsg == MCI_GETDEVCAPS)
+		{
+			LPMCI_GETDEVCAPS_PARMS parms = (LPVOID)dwParam;
+
+			dprintf("  MCI_GETDEVCAPS\r\n");
+
+			parms->dwReturn = 0;
+
+			if (fdwCommand & MCI_GETDEVCAPS_ITEM)
+			{
+				dprintf("  MCI_GETDEVCAPS_ITEM\r\n");
+				parms->dwReturn = TRUE; /* Just return TRUE for all possible queries */
+			}
+/*
+				if (parms->dwItem == MCI_GETDEVCAPS_CAN_PLAY || MCI_GETDEVCAPS_CAN_EJECT)
+				{
+					dprintf("      MCI_GETDEVCAPS_CAN_PLAY\r\n");
+					parms->dwReturn = TRUE;
+				}
+				else
+				{
+					parms->dwReturn = FALSE;
+				}
+*/
+		}
+
 		if (uMsg == MCI_SET)
 		{
 			LPMCI_SET_PARMS parms = (LPVOID)dwParam;
