@@ -599,6 +599,15 @@ MCIERROR WINAPI fake_mciSendStringA(LPCTSTR cmd, LPTSTR ret, UINT cchReturn, HAN
 		cmdbuf[i] = tolower(cmdbuf[i]);
 	}
 
+	/* MCI_GETDEVCAPS SendString equivalent */
+	sprintf(cmp_str, "capability %s", alias_s);
+	if (strstr(cmdbuf, cmp_str))
+	{
+		/* Return TRUE for all queries */
+		strcpy(ret, "TRUE");
+		return 0;
+	}
+
 	if (strstr(cmdbuf, "sysinfo cdaudio quantity"))
 	{
 		dprintf("  Returning quantity: 1\r\n");
