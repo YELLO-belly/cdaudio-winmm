@@ -89,6 +89,7 @@ int tracks = 0;
 int play = 0;
 int paused_track = 100;
 int notify_msg = 0;
+int skip_notify_msg = 0;
 int quit = 0;
 int mp3done = 0;
 int volume = 0xAFC8AFC8; /* Default vol 70%*/
@@ -394,7 +395,7 @@ int player_main( void )
 			
 			/* Check if track has changed: */
 			if(play_from != play_from2){
-				notify_msg = 0; /* If playback is interrupted do not send notify success msg. */
+				skip_notify_msg = 1; /* If playback is interrupted do not send notify success msg. */
 				break;
 			}
 		}
@@ -415,13 +416,14 @@ int player_main( void )
 		if(play_from == play_from2) play_from = 0; /* To avoid a repeat. */
 
 		/* Write notify success message: */
-		if (notify_msg){
+		if (notify_msg && !skip_notify_msg){
 			HANDLE Mailslot = CreateFile(ServerName, GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
 			WriteFile(Mailslot, "1 notify_s", 64, &BytesWritten, NULL);
 			CloseHandle(Mailslot);
 			notify_msg = 0;
 			dprintf("Notify SUCCESS!\n");
 		}
+		skip_notify_msg = 0;
 
 		/* Write MODE stopped for winmm wrapper: */
 		HANDLE Mailslot = CreateFile(ServerName, GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
@@ -559,7 +561,7 @@ int player_main( void )
 			/* Check if track has changed: */
 			if(play_from != play_from2)
 			{
-				notify_msg = 0; /* If playback is interrupted do not send notify success msg. */
+				skip_notify_msg = 1; /* If playback is interrupted do not send notify success msg. */
 				break;
 			}
 		}
@@ -584,14 +586,14 @@ int player_main( void )
 		if(play_from == play_from2) play_from = 0; /* To avoid a repeat. */
 
 		/* Write notify success message: */
-		if (notify_msg)
-		{
+		if (notify_msg && !skip_notify_msg){
 			HANDLE Mailslot = CreateFile(ServerName, GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
 			WriteFile(Mailslot, "1 notify_s", 64, &BytesWritten, NULL);
 			CloseHandle(Mailslot);
 			notify_msg = 0;
 			dprintf("Notify SUCCESS!\n");
 		}
+		skip_notify_msg = 0;
 
 		/* Write MODE stopped for winmm wrapper: */
 		HANDLE Mailslot = CreateFile(ServerName, GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
