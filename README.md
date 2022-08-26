@@ -1,4 +1,14 @@
-# cdaudio-winmm player (beta v.0.4.0.3):
+# cdaudio-winmm player (beta v.0.4.0.3) -UPDATED-:
+
+NEW EDITS:
+- MCI device ID now defaults to 0x1 (int 1). Old 0xBEEF (int 48879) can be restored from winmm.ini. (edited cdaudio-winmm.c, winmm.ini)
+- Non cdaudio related MCI commands are now relayed to the real winmm for video playback, etc. (from AyuanX fork) (edited cdaudio-winmm.c, cdaudio-winmm.def, stubs.c)
+- Subsequently MCI_GETDEVCAPS needs to be handled now. (edited cdaudio-winmm.c)
+- Needed to Add some extra complexity in the player loop where the fact that the mailslot can send a new notify msg request before the player loop is finished caused music not to repeat. (edited cdaudioplr_src\cdaudioplr.c -> new skip_notify_msg variable)
+
+.
+.
+.
 
 This is a winmm wrapper to a separate cdaudio player that handles the track repeat that is broken from Windows Vista onwards. Unlike the ogg-winmm wrapper which plays ripped .ogg files cdaudio-winmm instead tries to play the cdtracks on a physical disc (or cdimage) using a separate player program. Communication between winmm.dll and the player is done using [mailslots.](https://docs.microsoft.com/en-us/windows/win32/ipc/mailslots)
 
@@ -9,7 +19,7 @@ The trick is to handle the broken MCI mode change by monitoring POSTION and MODE
 Limitations:
 - Plays only single tracks which is fine most of the time but causes problems if the game issues a single "from -> to" command to play multiple tracks.
 - All tracks are reported as 1 minutes long. This may cause issues if a game relies on an accurate response for the track length query in order to determine when the track has finished playing.
-- The wrapper can not handle a situation where a game uses the MCI API to also play video files. In this case you will likely see a black screen or an error message.
+- ~~The wrapper can not handle a situation where a game uses the MCI API to also play video files. In this case you will likely see a black screen or an error message.~~
 
 0.4.0.3 changes:
 - Better no. of tracks logic. Should now work more reliably.
