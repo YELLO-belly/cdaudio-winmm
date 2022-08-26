@@ -2,7 +2,7 @@
 
 NEW EDITS:
 - MCI device ID now defaults to 0x1 (int 1). Old 0xBEEF (int 48879) can be restored from winmm.ini. (edited cdaudio-winmm.c, winmm.ini)
-- Non cdaudio related MCI commands are now relayed to the real winmm for video playback, etc. (from AyuanX fork) (edited cdaudio-winmm.c, cdaudio-winmm.def, stubs.c)
+- Non cdaudio related MCI commands are now relayed to the real winmm for video playback, etc. (taken from AyuanX ogg-winmm fork) (edited cdaudio-winmm.c, cdaudio-winmm.def, stubs.c)
 - Subsequently MCI_GETDEVCAPS needs to be handled now. (edited cdaudio-winmm.c)
 - Needed to Add some extra complexity in the player loop where the fact that the mailslot can send a new notify msg request before the player loop is finished caused music not to repeat. (edited cdaudioplr_src\cdaudioplr.c -> new skip_notify_msg variable)
 
