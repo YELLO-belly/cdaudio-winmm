@@ -42,7 +42,7 @@ int mode = 1; /* 1=stopped, 2=playing */
 MCIERROR WINAPI relay_mciSendCommandA(MCIDEVICEID a0, UINT a1, DWORD a2, DWORD a3);
 MCIERROR WINAPI relay_mciSendStringA(LPCSTR a0, LPSTR a1, UINT a2, HWND a3);
 
-#define MAGIC_DEVICEID 0xBEEF
+int MAGIC_DEVICEID = 1;
 
 #ifdef _DEBUG
 	#define dprintf(...) if (fh) { fprintf(fh, __VA_ARGS__); fflush(NULL); }
@@ -91,7 +91,7 @@ int reader_main( void )
 
 				/* Handle notify message: */
 				if(strcmp(name,"notify_s")==0){
-					SendMessageA((HWND)0xffff, MM_MCINOTIFY, MCI_NOTIFY_SUCCESSFUL, 0xBEEF);
+					SendMessageA((HWND)0xffff, MM_MCINOTIFY, MCI_NOTIFY_SUCCESSFUL, MAGIC_DEVICEID);
 				}
 
 				/* Read no. of tracks: */
@@ -114,6 +114,8 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 
 		/* Start Mailslot reader thread: */
 		reader = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)reader_main, NULL, 0, NULL);
+		int bMCIDevID = GetPrivateProfileInt("winmm", "MCIDevID", 0, ".\\winmm.ini");
+		if(bMCIDevID) MAGIC_DEVICEID = 48879; /* 48879 = 0xBEEF */
 	}
 
 	if (fdwReason == DLL_PROCESS_DETACH)
