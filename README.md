@@ -6,6 +6,9 @@ NEW EDITS:
 - Subsequently MCI_GETDEVCAPS needs to be handled now. (edited cdaudio-winmm.c)
 - Needed to Add some extra complexity in the player loop where the fact that the mailslot can send a new notify msg request before the player loop is finished caused music not to repeat. (edited cdaudioplr_src\cdaudioplr.c -> new skip_notify_msg variable)
 
+Extra note:
+- Apparently on some machines the local winmm.dll wrapper is ignored and the real system dll is used instead. This may be because some other program has already loaded the winmm.dll library or some system setting forces the use of the real dll. The wrapper can be forced to load by renaming it to for example to winm2.dll and hex editing the program executable to point to this renamed winmm.dll instead.
+
 .
 .
 .
