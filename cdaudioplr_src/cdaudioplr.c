@@ -11,6 +11,8 @@
 	playback starting with Windows Vista. Mainly the
 	lack of a working mode update after playing has
 	finished (missing MCI_NOTIFY_SUCCESSFUL msg).
+	
+	Rewritten in 2022.
 */
 
 #include <windows.h>
@@ -24,16 +26,15 @@
 #pragma comment(lib, "winmm.lib")
 #define GetCurrentDir _getcwd
 
-/* debug logging */
+// debug logging
 #ifdef _DEBUG
 	#define dprintf(...) if (fh) { fprintf(fh, __VA_ARGS__); fflush(NULL); }
 	FILE * fh = NULL;
 #else
 	#define dprintf(...)
 #endif
-/****/
 
-/* Win32 GUI stuff:*/
+// Win32 GUI stuff:
 #define IDC_MAIN_EDIT	101
 #define ID_FILE_EXIT 9001
 #define ID_VOLUME_0 9002
@@ -50,7 +51,8 @@
 #define ID_VIEW_WDIR 9013
 #define ID_HELP_INST 9014
 #define ID_HELP_ABOUT 9015
-/* check marks */
+
+// check marks:
 int chkvol_0 = 0;
 int chkvol_10 = 0;
 int chkvol_20 = 0;
@@ -62,16 +64,14 @@ int chkvol_70 = 0;
 int chkvol_80 = 0;
 int chkvol_90 = 0;
 int chkvol_100 = 0;
-/************************/
 
-/* Mailslot header stuff: */
+// Mailslot header stuff:
 DWORD NumberOfBytesRead;
 DWORD BytesWritten;
 CHAR ServerName[] = "\\\\.\\Mailslot\\winmm_Mailslot";
-char buffer[256];
-char name[256];
+char buffer[512];
+char name[512];
 int value;
-/********/
 
 const char g_szClassName[] = "myWindowClass";
 char pos1[64] = "-";
@@ -79,20 +79,37 @@ char pos2[64] = "-";
 char mode[64] = "";
 char media[64] = "";
 char tracks_s[64] = "";
-char play_cmd[128] = "";
+char length_s[64] = "";
+char pos_s[64] = "";
+char play_cmd[512] = "";
+char track_cmd[512] = "";
 char ini_dir[256] = "";
 
-int play_from = 0;
-int play_from2;
-int play_to;
+int pos_int = 0;
+int pos_t_int = 0;
+int length_int = 0;
+int length_t_int = 0;
+
+int mci_from = 0;
+int mci_from_m = 0;
+int mci_from_s = 0;
+int mci_from_f = 0;
+
+int mci_to = 0;
+int mci_to_m = 0;
+int mci_to_s = 0;
+int mci_to_f = 0;
+
+int skip_cmd = 0;
+int mci_play = 0;
+int mci_play_pump = 0;
+int mci_time = 0;
+int mci_time_set = 0;
+int mci_pause = 0;
 int tracks = 0;
-int play = 0;
-int paused_track = 100;
 int notify_msg = 0;
-int skip_notify_msg = 0;
 int quit = 0;
-int mp3done = 0;
-int volume = 0xAFC8AFC8; /* Default vol 70%*/
+int volume = 0xAFC8AFC8; // Default vol 70%
 
 FILE * fp;
 HANDLE reader = NULL;
@@ -100,81 +117,227 @@ HANDLE player = NULL;
 HWND hEdit;
 HWND g_hMainWindow = NULL;
 
-/* Mailslot reader thread: */
+// Mailslot reader thread:
 int reader_main( void )
 {
 	HANDLE Mailslot;
-	/* Create mailslot: */
+	// Create mailslot:
 	if ((Mailslot = CreateMailslot("\\\\.\\Mailslot\\cdaudioplr_Mailslot", 0, MAILSLOT_WAIT_FOREVER, NULL)) == INVALID_HANDLE_VALUE)
 	{
 		dprintf("mailslot error %d\n", GetLastError());
 		return 0;
 	}
 
-	/* Loop to read mailslot: */
-	while(ReadFile(Mailslot, buffer, 256, &NumberOfBytesRead, NULL) != 0)
+	// Loop to read mailslot:
+	while(ReadFile(Mailslot, buffer, 512, &NumberOfBytesRead, NULL) != 0)
 	{
 
 		if (NumberOfBytesRead > 0){
-			sscanf(buffer,"%d %s", &value, name);
-			dprintf("Mailslot stored name = %s | value = %d\n", name, value);
+			dprintf("Mailslot buffer: %s\n", buffer);
 
-				/* Read aux volume: */
-				if(strcmp(name,"aux_vol")==0){
-					waveOutSetVolume(NULL, value);
-					volume = value;
-					SetWindowText(hEdit, TEXT("Command: auxSetVolume"));
-				}
-
-				/* Handle notify message: */
-				if(strcmp(name,"mci_notify")==0){
-					notify_msg = value;
-				}
-
-				/* Read track to play: */
-				if(strcmp(name,"mci_from")==0){
-					play_from = value;
-					SetWindowText(hEdit, TEXT("Command: MCI_PLAY"));
-				}
-
-				if(strcmp(name,"mci_to")==0){
-					/* play_to = value; */
-					/* mci_to is converted to mci_from. */
-					if(value != play_from && value < 99)
-					{
-						play_from = value - 1;
-						SetWindowText(hEdit, TEXT("Command: MCI_PLAY"));
-					}
-				}
-
-				/* Read stop (play_from = 0): */
-				if(strcmp(name,"mci_stop")==0){
-					play_from = 0;
-					SetWindowText(hEdit, TEXT("Command: MCI_STOP"));
-				}
-
-				/* Read pause (play_from = 100): */
-				if(strcmp(name,"mci_pause")==0){
-					play_from = 100;
-					SetWindowText(hEdit, TEXT("Command: MCI_PAUSE"));
-				}
-
-				/* Read mci_resume */
-				if(strcmp(name,"mci_resume")==0){
-					play_from = paused_track;
-					SetWindowText(hEdit, TEXT("Command: MCI_RESUME"));
-				}
-
-				/* Read mci_tracks */
-				if(strcmp(name,"mci_tracks")==0){
-					/* Write no. of tracks for winmm wrapper: */
+				// Read mci_tracks
+				if(strstr(buffer,"mci_tracks")){
+					// Write no. of tracks for winmm wrapper:
 					HANDLE Mailslot = CreateFile(ServerName, GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
 					WriteFile(Mailslot, strcat(tracks_s, " tracks"), 64, &BytesWritten, NULL);
 					CloseHandle(Mailslot);
 				}
 
-				/* Read exit message */
-				if(strcmp(name,"exit")==0){
+				// Read notify msg request:
+				if(strstr(buffer,"mci_notify")){
+					notify_msg = 1;
+					SetWindowText(hEdit, TEXT("Command: MCI_NOTIFY"));
+				}
+
+				// Read time format:
+				if(strstr(buffer,"mci_time")){
+					sscanf(buffer,"%d %s", &value, name);
+					mci_time = value;
+					mci_time_set = 1;
+					SetWindowText(hEdit, TEXT("Command: MCI_SET_TIME_FORMAT"));
+				}
+
+				// Read MCI_FROM:
+				if(strstr(buffer,"mci_from")){
+					sscanf(buffer,"%d %d %d %d %s", &mci_from_f, &mci_from_s, &mci_from_m, &mci_from, name);
+					//SetWindowText(hEdit, TEXT("Command: MCI_FROM"));
+				}
+
+				// Read MCI_TO:
+				if(strstr(buffer,"mci_to")){
+					sscanf(buffer,"%d %d %d %d %s", &mci_to_f, &mci_to_s, &mci_to_m, &mci_to, name);
+					//SetWindowText(hEdit, TEXT("Command: MCI_TO"));
+				}
+
+				// Read MCI_PLAY:
+				if(strstr(buffer,"mci_play")){
+					mci_pause = 0;
+					if(!mci_from && !mci_from_m && !mci_from_s && !mci_from_f && 
+					!mci_to && !mci_to_m && !mci_to_s && !mci_to_f){
+						snprintf(play_cmd, 512, "play cdaudio");
+						skip_cmd = 1;
+					}
+					if(mci_play){
+						mci_play_pump = 1;
+					}
+					else{
+						mci_play = 1;
+					}
+					
+					SetWindowText(hEdit, TEXT("Command: MCI_PLAY"));
+				}
+
+				// Read MCI_PLAY from a string:
+				if(strstr(buffer,"play cdaudio")){
+					mci_pause = 0;
+					fgets(buffer,512,stdin);
+					strcpy(play_cmd,buffer);
+					
+					// Look for notify word and remove it from string
+					if(strstr(play_cmd,"notify")){
+						notify_msg = 1;
+						
+						char word[20] = "notify";
+						int i, j, len_str, len_word, temp, chk=0;
+						
+						len_str = strlen(play_cmd);
+						len_word = strlen(word);
+						for(i=0; i<len_str; i++){
+							temp = i;
+							for(j=0; j<len_word; j++){
+								if(play_cmd[i]==word[j])
+								i++;
+							}
+							chk = i-temp;
+							if(chk==len_word){
+								i = temp;
+								for(j=i; j<(len_str-len_word); j++)
+								play_cmd[j] = play_cmd[j+len_word];
+								len_str = len_str-len_word;
+								play_cmd[j]='\0';
+							}
+						}
+					}
+					
+					skip_cmd = 1;
+					if(mci_play){
+						mci_play_pump = 1;
+					}
+					else{
+						mci_play = 1;
+					}
+					
+					SetWindowText(hEdit, TEXT("Command: MCI_PLAY(string)"));
+				}
+
+				// Read MCI_STOP:
+				if(strstr(buffer,"mci_stop")){
+					mci_pause = 1;
+					mci_play = 0;
+					notify_msg = 0;
+					SetWindowText(hEdit, TEXT("Command: MCI_STOP"));
+				}
+
+				// Read MCI_PAUSE:
+				if(strstr(buffer,"mci_pause")){
+					mci_pause = 1;
+					mci_play = 0;
+					notify_msg = 0;
+					SetWindowText(hEdit, TEXT("Command: MCI_PAUSE"));
+				}
+
+				// Read track length:
+				if(strstr(buffer,"track_length")){
+					sscanf(buffer,"%d %s", &value, name);
+					int mci_track;
+					mci_track = value;
+					SetWindowText(hEdit, TEXT("Command: MCI_STATUS_LENGTH|MCI_TRACK"));
+					sprintf(track_cmd, "status cdaudio length track %d wait", mci_track);
+					length_t_int = 1;
+					// Wait for response:
+					int counter = 0;
+					while(length_t_int == 1 && counter < 30)
+					{
+						Sleep(10);
+						counter ++;
+					}
+					// Write result to winmm wrapper:
+					HANDLE Mailslot = CreateFile(ServerName, GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+					WriteFile(Mailslot, strcat(length_s, " length_t"), 64, &BytesWritten, NULL);
+					CloseHandle(Mailslot);
+					sprintf(track_cmd,"");
+					sprintf(length_s,"");
+				}
+
+				// Read full length:
+				if(strstr(buffer,"full_length")){
+					SetWindowText(hEdit, TEXT("Command: MCI_STATUS_LENGTH"));
+					length_int = 1;
+					// Wait for response:
+					int counter = 0;
+					while(length_int == 1 && counter < 30)
+					{
+						Sleep(10);
+						counter ++;
+					}
+					// Write result to winmm wrapper:
+					HANDLE Mailslot = CreateFile(ServerName, GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+					WriteFile(Mailslot, strcat(length_s, " length"), 64, &BytesWritten, NULL);
+					CloseHandle(Mailslot);
+					sprintf(length_s,"");
+				}
+
+				// Read track position:
+				if(strstr(buffer,"track_pos")){
+					sscanf(buffer,"%d %s", &value, name);
+					int mci_track;
+					mci_track = value;
+					SetWindowText(hEdit, TEXT("Command: MCI_STATUS_POSITION|MCI_TRACK"));
+					sprintf(track_cmd, "status cdaudio position track %d wait", mci_track);
+					pos_t_int = 1;
+					// Wait for response:
+					int counter = 0;
+					while(pos_t_int == 1 && counter < 30)
+					{
+						Sleep(10);
+						counter ++;
+					}
+					// Write result to winmm wrapper:
+					HANDLE Mailslot = CreateFile(ServerName, GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+					WriteFile(Mailslot, strcat(pos_s, " pos_t"), 64, &BytesWritten, NULL);
+					CloseHandle(Mailslot);
+					sprintf(track_cmd,"");
+					sprintf(pos_s,"");
+				}
+
+				// Read current position:
+				if(strstr(buffer,"cur_pos")){
+					SetWindowText(hEdit, TEXT("Command: MCI_STATUS_POSITION"));
+					pos_int = 1;
+					// Wait for response:
+					int counter = 0;
+					while(pos_int == 1 && counter < 30)
+					{
+						Sleep(10);
+						counter ++;
+					}
+					// Write result to winmm wrapper:
+					HANDLE Mailslot = CreateFile(ServerName, GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+					WriteFile(Mailslot, strcat(pos_s, " pos"), 64, &BytesWritten, NULL);
+					CloseHandle(Mailslot);
+					sprintf(pos_s,"");
+				}
+
+				// Read aux volume:
+				if(strstr(buffer,"aux_vol")){
+					sscanf(buffer,"%d %s", &value, name);
+					waveOutSetVolume(NULL, value);
+					volume = value;
+					SetWindowText(hEdit, TEXT("Command: auxSetVolume"));
+				}
+
+				// Read exit message
+				if(strstr(buffer,"exit")){
 					PostMessage(g_hMainWindow,WM_SHOWWINDOW,SW_RESTORE,0);
 					quit = 1;
 				}
@@ -183,35 +346,38 @@ int reader_main( void )
 	return 0;
 }
 
-/* Player thread: */
+// Player thread:
 int player_main( void )
 {
-	/* Get the working directory: */
+	// Get the working directory:
 	char wdir[FILENAME_MAX];
 	GetCurrentDir(wdir, FILENAME_MAX);
 	sprintf(ini_dir, "%s\\cdaudio_vol.ini", wdir);
 
-	/*
-	Set volume:
-	(Note: Since we have a separate player app 
-	the volume can also be adjusted from the 
-	Windows mixer with better accuracy...)
-	*/
-	int cdaudio_vol = 100; /* 100 uses auxVolume */
+
+	//Set volume:
+	//(Note: Since we have a separate player app 
+	//the volume can also be adjusted from the 
+	//Windows mixer with better accuracy...)
+
+	int cdaudio_vol = 100; // 100 uses auxVolume
 
 	fp = fopen (ini_dir, "r");
-			/* If not null read values */
+			// If not null read values
 			if (fp!=NULL){
 			fscanf(fp, "%d", &cdaudio_vol);
 			fclose(fp);
 		}
-		/* Else write new ini file */
+		// Else write new ini file
 		else{
 		fp = fopen (ini_dir, "w+");
 		fprintf(fp, "%d\n"
 			"#\n"
 			"# cdaudioplr CD music volume override control.\n"
-			"# Change the number to the desired volume level (0-100).", cdaudio_vol);
+			"# Change the number to the desired volume level (0-100).\n\n"
+			"[options]\n"
+			"# Enable debug log\n"
+			"Log = 0", cdaudio_vol);
 		fclose(fp);
 	}
 
@@ -223,411 +389,336 @@ int player_main( void )
 		chkvol_0 = 1;
 	}
 	if (cdaudio_vol <= 10 && cdaudio_vol > 1){
-		waveOutSetVolume(NULL, 0x1F401F40); /* 8000 */
+		waveOutSetVolume(NULL, 0x1F401F40); // 8000
 		chkvol_10 = 1;
 	}
 	if (cdaudio_vol <= 20 && cdaudio_vol > 10){
-		waveOutSetVolume(NULL, 0x32C832C8); /* 13000 */
+		waveOutSetVolume(NULL, 0x32C832C8); // 13000
 		chkvol_20 = 1;
 	}
 	if (cdaudio_vol <= 30 && cdaudio_vol > 20){
-		waveOutSetVolume(NULL, 0x4A384A38); /* 19000 */
+		waveOutSetVolume(NULL, 0x4A384A38); // 19000
 		chkvol_30 = 1;
 	}
 	if (cdaudio_vol <= 40 && cdaudio_vol > 30){
-		waveOutSetVolume(NULL, 0x652C652C); /* 25900 */
+		waveOutSetVolume(NULL, 0x652C652C); // 25900
 		chkvol_40 = 1;
 	}
 	if (cdaudio_vol <= 50 && cdaudio_vol > 40){
-		waveOutSetVolume(NULL, 0x7D007D00); /* 32000 */
+		waveOutSetVolume(NULL, 0x7D007D00); // 32000
 		chkvol_50 = 1;
 	}
 	if (cdaudio_vol <= 60 && cdaudio_vol > 50){
-		waveOutSetVolume(NULL, 0x9A4C9A4C); /* 39500 */
+		waveOutSetVolume(NULL, 0x9A4C9A4C); // 39500
 		chkvol_60 = 1;
 	}
 	if (cdaudio_vol <= 70 && cdaudio_vol > 60){
-		waveOutSetVolume(NULL, 0xAFC8AFC8); /* 45000 */
+		waveOutSetVolume(NULL, 0xAFC8AFC8); // 45000
 		chkvol_70 = 1;
 	}
 	if (cdaudio_vol <= 80 && cdaudio_vol > 70){
-		waveOutSetVolume(NULL, 0xCB20CB20); /* 52000 */
+		waveOutSetVolume(NULL, 0xCB20CB20); // 52000
 		chkvol_80 = 1;
 	}
 	if (cdaudio_vol <= 90 && cdaudio_vol > 80){
-		waveOutSetVolume(NULL, 0xE290E290); /* 58000 */
+		waveOutSetVolume(NULL, 0xE290E290); // 58000
 		chkvol_90 = 1;
 	}
 	if (cdaudio_vol >= 100 && cdaudio_vol > 90){
-		waveOutSetVolume(NULL, volume); /* Use AuxVol */
+		waveOutSetVolume(NULL, volume); // Use AuxVol
 		chkvol_100 = 1;
 	}
 
-  /* -------------------- */
- /* mp3/wav player code: */
-/* -------------------- */
-
-	/* HWND hwnd; */
-	DIR *dir;
-	struct dirent *list;
-	char tempname[256] = "";
-	int mp3playback = 0;
-	int lookforwav = 0;
-
-	/* Try to open music dir */
-	if ((dir = opendir (".\\music\\")) == NULL){
-		dprintf ("Music dir not found.\n");
-		}
-		else{
-		/* Look for .mp3 */
-		while ((list = readdir (dir)) != NULL){
-			/* Get file name sring */
-			sprintf (tempname, "%s", list->d_name);
-			/* Make it lower case */
-			for(int i = 0; tempname[i]; i++){
-			tempname[i] = tolower(tempname[i]);
-			}
-			/* Look for "track" and ".mp3" in the file name */
-			if ((strstr(tempname, "track")) && (strstr(tempname, ".mp3"))){
-			tracks++;
-			}
-		}
-		closedir (dir);
-		if(!tracks){
-			dprintf ("No mp3 tracks found!\n");
-			lookforwav = 1;
-		}
-		else{
-		dprintf ("Found %d mp3 tracks.\n", tracks);
-		SetWindowText(hEdit, TEXT("Using .mp3 files for music playback."));
-		tracks++; /* Add data track */
-		mp3playback = 1;
-
-		/* convert to string */
-		sprintf(tracks_s, "%d", tracks);
-		}
-
-		/* Look for .wav instead */
-		if(lookforwav){
-			dir = opendir (".\\music\\");
-			while ((list = readdir (dir)) != NULL){
-				/* Get file name sring */
-				sprintf (tempname, "%s", list->d_name);
-				/* Make it lower case */
-				for(int i = 0; tempname[i]; i++){
-				tempname[i] = tolower(tempname[i]);
-				}
-				/* Look for "track" and ".wav" in the file name */
-				if ((strstr(tempname, "track")) && (strstr(tempname, ".wav"))){
-				tracks++;
-				}
-			}
-			closedir (dir);
-			if(!tracks){
-				dprintf ("No wav tracks found!\n");
-			}
-			else{
-			dprintf ("Found %d wav tracks.\n", tracks);
-			SetWindowText(hEdit, TEXT("Using .wav files for music playback."));
-			tracks++; /* Add data track */
-			mp3playback = 1;
-			
-			/* convert to string */
-			sprintf(tracks_s, "%d", tracks);
-			}
-		}
-	}
-
-	/* mp3(and wav) player loop: */
-	while(mp3playback){
-
-		if(play_from > 0 && play_from < 100)
-		{
-			play = 1;
-			play_from2 = play_from; /* For comparison. */
-		}
-
-		while(play)
-		{
-			/* Handle MCI_PAUSE: */
-			if(play_from == paused_track)
-			{
-				mciSendStringA("resume mp3track", NULL, 0, NULL);
-				paused_track = 100;
-				dprintf("RESUME:\n");
-				SetWindowText(hEdit, TEXT("Command: MCI_RESUME"));
-				
-				/* Write mode playing for winmm wrapper: */
-				HANDLE Mailslot = CreateFile(ServerName, GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-				WriteFile(Mailslot, "2 mode", 64, &BytesWritten, NULL);
-				CloseHandle(Mailslot);
-			}
-			else
-			{
-				/* Open .wav file */
-				if(lookforwav){
-				sprintf(play_cmd, "open \".\\music\\track%02d.wav\" type waveaudio alias mp3track", play_from);
-				}
-				/* Open .mp3 file */
-				else{
-				sprintf(play_cmd, "open \".\\music\\track%02d.mp3\" type mpegvideo alias mp3track", play_from);
-				}
-				mciSendStringA(play_cmd, NULL, 0, NULL);
-				dprintf("%s\n", play_cmd);
-				
-				/* Issue play command: */
-				mciSendStringA("play mp3track", NULL, 0, g_hMainWindow);
-				mp3done = 0;
-				dprintf("playing track: %d\n", play_from);
-				
-				/* Write mode playing for winmm wrapper: */
-				HANDLE Mailslot = CreateFile(ServerName, GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-				WriteFile(Mailslot, "2 mode", 64, &BytesWritten, NULL);
-				CloseHandle(Mailslot);
-			}
-
-		while (!mp3done){
-			Sleep (100);
-			
-			/* Check mp3 playback mode to determine when playback has finished: */
-			mciSendStringA("status mp3track mode", mode, 64, NULL);
-			if(strcmp(mode,"playing")!=0) mp3done = 1;
-			
-			/* Check if track has changed: */
-			if(play_from != play_from2){
-				skip_notify_msg = 1; /* If playback is interrupted do not send notify success msg. */
-				break;
-			}
-		}
-
-		/* Handle MCI_PAUSE: */
-		if (play_from == 100)
-		{
-			mciSendStringA("pause mp3track", NULL, 0, NULL);
-			dprintf("  PAUSE:\n");
-			paused_track = play_from2;
-		}
-		else
-		{
-		mciSendStringA("stop mp3track", NULL, 0, NULL);
-		mciSendStringA("close mp3track", NULL, 0, NULL);
-		}
-
-		if(play_from == play_from2) play_from = 0; /* To avoid a repeat. */
-
-		/* Write notify success message: */
-		if (notify_msg && !skip_notify_msg){
-			HANDLE Mailslot = CreateFile(ServerName, GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-			WriteFile(Mailslot, "1 notify_s", 64, &BytesWritten, NULL);
-			CloseHandle(Mailslot);
-			notify_msg = 0;
-			dprintf("Notify SUCCESS!\n");
-		}
-		skip_notify_msg = 0;
-
-		/* Write MODE stopped for winmm wrapper: */
-		HANDLE Mailslot = CreateFile(ServerName, GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-		WriteFile(Mailslot, "1 mode", 64, &BytesWritten, NULL);
-		CloseHandle(Mailslot);
-
-		play = 0;
-		
-	}
-
-	Sleep(100);
-	}
-
-  /* --------------------------- */
- /* End of mp3/wav player code. */
-/* --------------------------- */
-
-	mciSendStringA("status cdaudio media present", media, 64, NULL);
-	/* Loop to check if CD is inserted: */
+	mciSendStringA("status cdaudio media present wait", media, 64, NULL);
+	// Loop to check if CD is inserted: 
 	while(strcmp(media,"true")!=0)
 	{
 		SetWindowText(hEdit, TEXT("Looking for CD."));
-		mciSendStringA("status cdaudio media present", media, 64, NULL);
-		Sleep(250);
+		mciSendStringA("status cdaudio media present wait", media, 64, NULL);
+		Sleep(200);
 		SetWindowText(hEdit, TEXT("Looking for CD.."));
-		Sleep(250);
+		Sleep(200);
 		SetWindowText(hEdit, TEXT("Looking for CD..."));
-		Sleep(250);
+		Sleep(200);
 	}
 	SetWindowText(hEdit, TEXT("CD Found... READY."));
 
-	/* Get the number of CD tracks: */
-	mciSendStringA("status cdaudio number of tracks", tracks_s, 64, NULL);
-	/* convert to int: */
-	sscanf(tracks_s, "%d", &tracks); /* tracks = atoi(tracks_s); */
-	dprintf("Tracks: %d\n", tracks);
+	// Get the number of CD tracks: 
+	mciSendStringA("status cdaudio number of tracks wait", tracks_s, 64, NULL);
+	// convert to int: 
+	sscanf(tracks_s, "%d", &tracks); // tracks = atoi(tracks_s); 
+	//dprintf("Tracks: %d\n", tracks);
 
-	/* Open cdaudio & set time format: */
-	mciSendStringA("close cdaudio", NULL, 0, NULL); /* Important! */
-	mciSendStringA("open cdaudio", NULL, 0, NULL);
-	mciSendStringA("set cdaudio time format tmsf", NULL, 0, NULL);
+	// Close/Open cdaudio: 
+	mciSendStringA("close cdaudio wait", NULL, 0, NULL); // Important! 
+	mciSendStringA("open cdaudio wait", NULL, 0, NULL);
 
-	/* cdaudio player loop: */
-	while(1){
-
-	if(play_from > 0 && play_from < 100)
+	// Waiting loop:
+	while(1)
 	{
-		play = 1;
-		play_from2 = play_from; /* For comparison. */
-	}
-
-	while(play)
-	{
-		/* A temporary work around: */
-		play_to = play_from+1;
-
-		/* Handle MCI_PAUSE: */
-		if(play_from == paused_track)
-		{
-			/*
-			NOTE: MCI_RESUME is new for cdaudio from WinXP onwards...
-			In Win9x you could resume only with "MCI_TO" or "MCI_PLAY NULL".
-			*/
-			mciSendStringA("resume cdaudio", NULL, 0, NULL);
-			paused_track = 100;
-			dprintf("RESUME:\n");
-			SetWindowText(hEdit, TEXT("Command: MCI_RESUME"));
-			mciSendStringA("status cdaudio mode", mode, 64, NULL); /* Get the mode. */
-			
-			/* Write mode playing for winmm wrapper: */
-			HANDLE Mailslot = CreateFile(ServerName, GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-			WriteFile(Mailslot, "2 mode", 64, &BytesWritten, NULL);
-			CloseHandle(Mailslot);
-			
-			/*
-			Handle CD spin-up with a loop:
-			(While mode is playing and position does not change.)
-			*/
-			while(strcmp(pos1,pos2)==0 && strcmp(mode,"playing")==0 && play)
-			{
-				mciSendStringA("status cdaudio position", pos1, 64, NULL);
-				Sleep (100);
-				mciSendStringA("status cdaudio position", pos2, 64, NULL);
-			}
+		if(mci_time==0 && mci_time_set){
+			mciSendStringA("set cdaudio time format msf wait", NULL, 0, NULL);
+			mci_time_set = 0;
+		}
+		if(mci_time==1 && mci_time_set){
+			mciSendStringA("set cdaudio time format tmsf wait", NULL, 0, NULL);
+			mci_time_set = 0;
+		}
+		if(mci_time==2 && mci_time_set){
+			mciSendStringA("set cdaudio time format ms wait", NULL, 0, NULL);
+			mci_time_set = 0;
+		}
+		if(length_int){
+			mciSendStringA("status cdaudio length wait", length_s, 64, NULL);
+			length_int = 0;
+		}
+		if(length_t_int){
+			mciSendStringA(track_cmd, length_s, 64, NULL);
+			length_t_int = 0;
+		}
+		if(pos_int){
+			mciSendStringA("status cdaudio position wait", pos_s, 64, NULL);
+			pos_int = 0;
+		}
+		if(pos_t_int){
+			mciSendStringA(track_cmd, pos_s, 64, NULL);
+			pos_t_int = 0;
 		}
 
-		else
+		// Play loop:
+		while(mci_play)
 		{
-			/* Handle last track: */
-			if(play_to > tracks)
-			{
-				sprintf(play_cmd, "play cdaudio from %d", play_from);
+			dprintf("while mci_play loop\n");
+			// Set time format:
+			if(mci_time==0 && mci_time_set){
+				mciSendStringA("set cdaudio time format msf  wait", NULL, 0, NULL);
+				mci_time_set = 0;
 			}
-			else
-			{
-				sprintf(play_cmd, "play cdaudio from %d to %d", play_from, play_to);
+			if(mci_time==1 && mci_time_set){
+				mciSendStringA("set cdaudio time format tmsf wait", NULL, 0, NULL);
+				mci_time_set = 0;
 			}
-			
-			/* Issue play command: */
+			if(mci_time==2 && mci_time_set){
+				mciSendStringA("set cdaudio time format ms wait", NULL, 0, NULL);
+				mci_time_set = 0;
+			}
+
+			// MSF
+			if(mci_time==0 && !skip_cmd){
+				if(!mci_to_m && !mci_to_s && !mci_to_f){
+					sprintf(play_cmd, "play cdaudio from %d:%d:%d", 
+					mci_from_m, mci_from_s, mci_from_f);
+				}
+				else if(!mci_from_m && !mci_from_s && !mci_from_f){
+					sprintf(play_cmd, "play cdaudio to %d:%d:%d", 
+					mci_to_m, mci_to_s, mci_to_f);
+				}
+				else{
+					sprintf(play_cmd, "play cdaudio from %d:%d:%d to %d:%d:%d", 
+					mci_from_m, mci_from_s, mci_from_f, 
+					mci_to_m, mci_to_s, mci_to_f);
+				}
+			}
+			// TMSF
+			if(mci_time==1 && !skip_cmd){
+				if(mci_to==0 && mci_to_m==0 && mci_to_s==0 && mci_to_f==0){
+					sprintf(play_cmd, "play cdaudio from %d:%d:%d:%d", 
+					mci_from, mci_from_m, mci_from_s, mci_from_f);
+				}
+				else if(!mci_from && !mci_from_m && !mci_from_s && !mci_from_f){
+					sprintf(play_cmd, "play cdaudio to %d:%d:%d:%d", 
+					mci_to, mci_to_m, mci_to_s, mci_to_f);
+				}
+				else{
+					sprintf(play_cmd, "play cdaudio from %d:%d:%d:%d to %d:%d:%d:%d", 
+					mci_from, mci_from_m, mci_from_s, mci_from_f, 
+					mci_to, mci_to_m, mci_to_s, mci_to_f);
+				}
+			}
+			// MILLISECONDS
+			if(mci_time==2 && !skip_cmd){
+				if(!mci_to){
+					sprintf(play_cmd, "play cdaudio from %d", mci_from);
+				}
+				else if(!mci_from){
+					sprintf(play_cmd, "play cdaudio to %d", mci_to);
+				}
+				else{
+					sprintf(play_cmd, "play cdaudio from %d to %d", mci_from, mci_to);
+				}
+			}
+
+			// Issue play command: 
 			mciSendStringA(play_cmd, NULL, 0, NULL);
-			mciSendStringA("status cdaudio mode", mode, 64, NULL); /* Get the initial mode. */
-			dprintf("%s track: %d\n", mode, play_from);
+			dprintf("%s\n", play_cmd);
+			mciSendStringA("status cdaudio mode wait", mode, 64, NULL); // Get the initial mode. 
+			dprintf("mode: %s\n", mode);
+
+			// Empty from and to values:
+			mci_from = mci_from_m = mci_from_s = mci_from_f = 0;
+			mci_to = mci_to_m = mci_to_s = mci_to_f = 0;
 			
-			/* Write mode playing for winmm wrapper: */
+			// Empty play command:
+			sprintf(play_cmd,"");
+			skip_cmd = 0;
+
+			// Write mode playing for winmm wrapper: 
 			HANDLE Mailslot = CreateFile(ServerName, GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
 			WriteFile(Mailslot, "2 mode", 64, &BytesWritten, NULL);
 			CloseHandle(Mailslot);
-			
-			/*
-			Handle CD spin-up with a loop:
-			(While mode is playing and position does not change.)
-			*/
-			while(strcmp(pos1,pos2)==0 && strcmp(mode,"playing")==0 && play)
+
+			// Handle CD spin-up with a loop:
+			// (While mode is playing and position does not change.)
+			while(strcmp(pos1,pos2)==0 && strcmp(mode,"playing")==0 && mci_play)
 			{
-				mciSendStringA("status cdaudio position", pos1, 64, NULL);
-				Sleep (100);
-				mciSendStringA("status cdaudio position", pos2, 64, NULL);
+				if(length_int){
+					mciSendStringA("status cdaudio length wait", length_s, 64, NULL);
+					length_int = 0;
+				}
+				if(length_t_int){
+					mciSendStringA(track_cmd, length_s, 64, NULL);
+					length_t_int = 0;
+				}
+				if(pos_int){
+					mciSendStringA("status cdaudio position wait", pos_s, 64, NULL);
+					pos_int = 0;
+				}
+				if(pos_t_int){
+					mciSendStringA(track_cmd, pos_s, 64, NULL);
+					pos_t_int = 0;
+				}
+				
+				dprintf("while CD spin-up loop\n");
+				mciSendStringA("status cdaudio position wait", pos1, 64, NULL);
+				
+				int counter = 0;
+				while(counter < 10)
+				{
+					if (mci_pause || mci_play_pump){
+						break;
+					}
+					Sleep(10);
+					counter ++;
+				}
+				
+				mciSendStringA("status cdaudio position wait", pos2, 64, NULL);
+				
+				if (mci_pause || mci_play_pump){
+					//mciSendStringA("stop cdaudio", NULL, 0, NULL);
+					break;
+				}
 			}
-		}
 
-		/*
-		cdaudio play loop:
-		(While positions differ track must be playing.)
-		*/
-		while(strcmp(pos1,pos2)!=0 && strcmp(mode,"playing")==0 && play)
-		{
-			mciSendStringA("status cdaudio position", pos1, 64, NULL);
-			/* dprintf("    POS: %s\r", pos1); */
-			Sleep (500);
-			mciSendStringA("status cdaudio position", pos2, 64, NULL);
-			/* dprintf("    POS: %s\r", pos2); */
-			/* Check for mode change: */
-			mciSendStringA("status cdaudio mode", mode, 64, NULL);
-			
-			/* Check if track has changed: */
-			if(play_from != play_from2)
+			// cdaudio play loop:
+			// (While positions differ track must be playing.)
+			while(strcmp(pos1,pos2)!=0 && strcmp(mode,"playing")==0 && mci_play)
 			{
-				skip_notify_msg = 1; /* If playback is interrupted do not send notify success msg. */
-				break;
+				if(length_int){
+					mciSendStringA("status cdaudio length wait", length_s, 64, NULL);
+					length_int = 0;
+				}
+				if(length_t_int){
+					mciSendStringA(track_cmd, length_s, 64, NULL);
+					length_t_int = 0;
+				}
+				if(pos_int){
+					mciSendStringA("status cdaudio position wait", pos_s, 64, NULL);
+					pos_int = 0;
+				}
+				if(pos_t_int){
+					mciSendStringA(track_cmd, pos_s, 64, NULL);
+					pos_t_int = 0;
+				}
+				
+				dprintf("actual play loop\n");
+				mciSendStringA("status cdaudio position wait", pos1, 64, NULL);
+				// dprintf("    POS: %s\r", pos1);
+				
+				int counter = 0;
+				while(counter < 30) // Needs a minimum of 200ms sleep to get reliable position data. (Could vary depending on hardware.)
+				{
+					if (mci_play_pump || mci_pause){
+						break;
+					}
+					Sleep(10);
+					counter ++;
+				}
+				
+				mciSendStringA("status cdaudio position wait", pos2, 64, NULL);
+				// dprintf("    POS: %s\r", pos2);
+				// Check for mode change: 
+				mciSendStringA("status cdaudio mode wait", mode, 64, NULL);
+				
+				if (mci_play_pump){
+					break;
+				}
+				if (mci_pause){
+					mciSendStringA("pause cdaudio wait", NULL, 0, NULL);
+					dprintf("  Playback paused\n");
+					// Write MODE stopped for winmm wrapper: 
+					HANDLE Mailslot = CreateFile(ServerName, GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+					WriteFile(Mailslot, "1 mode", 64, &BytesWritten, NULL);
+					CloseHandle(Mailslot);
+					break;
+				}
 			}
+
+			// MCI_STOP if track finished: 
+			if (!mci_pause && !mci_play_pump)
+			{
+				mciSendStringA("stop cdaudio wait", NULL, 0, NULL);
+				// Write MODE stopped for winmm wrapper: 
+				HANDLE Mailslot = CreateFile(ServerName, GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+				WriteFile(Mailslot, "1 mode", 64, &BytesWritten, NULL);
+				CloseHandle(Mailslot);
+			}
+
+			// Get last mode: 
+			if(!mci_play_pump){
+				mciSendStringA("status cdaudio mode wait", mode, 64, NULL);
+				dprintf("mode: %s\n", mode);
+			}
+
+			// Write notify success message: 
+			if (notify_msg && !mci_play_pump && !mci_pause){
+				HANDLE Mailslot = CreateFile(ServerName, GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+				WriteFile(Mailslot, "1 notify_s", 64, &BytesWritten, NULL);
+				CloseHandle(Mailslot);
+				notify_msg = 0;
+				dprintf("Notify SUCCESS!\n");
+			}
+
+			// Reset pos strings for next run: 
+			strcpy (pos1, "-");
+			strcpy (pos2, "-");
+			if(!mci_play_pump)mci_play = 0;
+			mci_play_pump = 0;
+			//SetWindowText(hEdit, TEXT("Playback ended..."));
 		}
 
-		/* Handle MCI_PAUSE: */
-		if (play_from == 100)
-		{
-			mciSendStringA("pause cdaudio", NULL, 0, NULL);
-			dprintf("  PAUSE:\n");
-			paused_track = play_from2;
-		}
-		else
-		{
-		/* Mode will stay "playing" so we need a "stop cdaudio" to update it. */
-		mciSendStringA("stop cdaudio", NULL, 0, NULL);
-		}
-
-		/* Get last mode: */
-		mciSendStringA("status cdaudio mode", mode, 64, NULL);
-		dprintf("%s\n", mode);
-
-		if(play_from == play_from2) play_from = 0; /* To avoid a repeat. */
-
-		/* Write notify success message: */
-		if (notify_msg && !skip_notify_msg){
-			HANDLE Mailslot = CreateFile(ServerName, GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-			WriteFile(Mailslot, "1 notify_s", 64, &BytesWritten, NULL);
-			CloseHandle(Mailslot);
-			notify_msg = 0;
-			dprintf("Notify SUCCESS!\n");
-		}
-		skip_notify_msg = 0;
-
-		/* Write MODE stopped for winmm wrapper: */
-		HANDLE Mailslot = CreateFile(ServerName, GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-		WriteFile(Mailslot, "1 mode", 64, &BytesWritten, NULL);
-		CloseHandle(Mailslot);
-
-		/* Reset pos strings for next run: */
-		strcpy (pos1, "-");
-		strcpy (pos2, "-");
-		play = 0;
-	}
-
-	Sleep(100);
+		Sleep(10);
 	}
 
 	return 0;
 }
 
-/* Message handling: */
+// Message handling: 
 LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
 	switch(msg)
-	{/*
+	{
+		/*
 		case MM_MCINOTIFY:
 		{
 			if (msg==MM_MCINOTIFY && wParam==MCI_NOTIFY_SUCCESSFUL)
-			mp3done = 1;
 		}
-		break;*/
+		break;
+		*/
 		case WM_CREATE:
 		{
 			HFONT hfDefault;
 
-			/* Static text display: */
+			// Static text display: 
 			hEdit = CreateWindow("STATIC", "", WS_VISIBLE | WS_CHILD | SS_LEFT, 0,0,100,100, hwnd, (HMENU)IDC_MAIN_EDIT, GetModuleHandle(NULL), NULL);
 
 			HMENU hMenu, hSubMenu;
@@ -668,7 +759,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 		break;
 		case WM_SIZE:
 		{
-			/* Resize text area: */
+			// Resize text area: 
 			HWND hEdit;
 			RECT rcClient;
 
@@ -680,7 +771,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 		break;
 		
 		case WM_INITMENUPOPUP:
-			/* check marks */
+			// check marks 
 			CheckMenuItem((HMENU)wParam, ID_VOLUME_0, MF_BYCOMMAND | ( chkvol_0 ? MF_CHECKED : MF_UNCHECKED));
 			CheckMenuItem((HMENU)wParam, ID_VOLUME_10, MF_BYCOMMAND | ( chkvol_10 ? MF_CHECKED : MF_UNCHECKED));
 			CheckMenuItem((HMENU)wParam, ID_VOLUME_20, MF_BYCOMMAND | ( chkvol_20 ? MF_CHECKED : MF_UNCHECKED));
@@ -701,14 +792,14 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 				case ID_FILE_EXIT:
 					PostMessage(hwnd, WM_CLOSE, 0, 0);
 				break;
-				/* GUI adjust volume and write to .ini */
+				// GUI adjust volume and write to .ini 
 				case ID_VOLUME_0:
 					waveOutSetVolume(NULL, 0x0);
 					fp = fopen (ini_dir, "w+");
 					fprintf(fp, "0");
 					fclose(fp);
 					
-					/* check marks */
+					// check marks 
 					chkvol_0 = 1;
 					chkvol_10 = 0;
 					chkvol_20 = 0;
@@ -728,7 +819,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 					fprintf(fp, "10");
 					fclose(fp);
 					
-					/* check marks */
+					// check marks 
 					chkvol_0 = 0;
 					chkvol_10 = 1;
 					chkvol_20 = 0;
@@ -748,7 +839,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 					fprintf(fp, "20");
 					fclose(fp);
 					
-					/* check marks */
+					// check marks 
 					chkvol_0 = 0;
 					chkvol_10 = 0;
 					chkvol_20 = 1;
@@ -768,7 +859,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 					fprintf(fp, "30");
 					fclose(fp);
 					
-					/* check marks */
+					// check marks 
 					chkvol_0 = 0;
 					chkvol_10 = 0;
 					chkvol_20 = 0;
@@ -788,7 +879,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 					fprintf(fp, "40");
 					fclose(fp);
 					
-					/* check marks */
+					// check marks 
 					chkvol_0 = 0;
 					chkvol_10 = 0;
 					chkvol_20 = 0;
@@ -808,7 +899,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 					fprintf(fp, "50");
 					fclose(fp);
 					
-					/* check marks */
+					// check marks 
 					chkvol_0 = 0;
 					chkvol_10 = 0;
 					chkvol_20 = 0;
@@ -828,7 +919,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 					fprintf(fp, "60");
 					fclose(fp);
 					
-					/* check marks */
+					// check marks 
 					chkvol_0 = 0;
 					chkvol_10 = 0;
 					chkvol_20 = 0;
@@ -848,7 +939,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 					fprintf(fp, "70");
 					fclose(fp);
 					
-					/* check marks */
+					// check marks 
 					chkvol_0 = 0;
 					chkvol_10 = 0;
 					chkvol_20 = 0;
@@ -868,7 +959,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 					fprintf(fp, "80");
 					fclose(fp);
 					
-					/* check marks */
+					// check marks 
 					chkvol_0 = 0;
 					chkvol_10 = 0;
 					chkvol_20 = 0;
@@ -888,7 +979,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 					fprintf(fp, "90");
 					fclose(fp);
 					
-					/* check marks */
+					// check marks 
 					chkvol_0 = 0;
 					chkvol_10 = 0;
 					chkvol_20 = 0;
@@ -908,7 +999,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 					fprintf(fp, "100");
 					fclose(fp);
 					
-					/* check marks */
+					// check marks 
 					chkvol_0 = 0;
 					chkvol_10 = 0;
 					chkvol_20 = 0;
@@ -936,11 +1027,10 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 					"    in 'mcicda' -subfolder.\n3. Run the game normally.\n\n"
 					"Additional tips:\n\n- You can also start cdaudioplr.exe\n"
 					"manually before running the game.\n\n- Do not place cdaudioplr.exe and\n"
-					"winmm.dll in the same folder.\n\n- mp3 or wav tracks can be placed\n"
-					"in 'music' folder (track02 ...)"), TEXT("Instructions"), MB_OK);
+					"winmm.dll in the same folder."), TEXT("Instructions"), MB_OK);
 				break;
 				case ID_HELP_ABOUT:
-					MessageBox(hwnd, TEXT("cdaudio-winmm player\nversion 0.4 Beta (c) 2020\n\nRestores track repeat\nand volume control\nin Vista and later."), TEXT("About"), MB_OK);
+					MessageBox(hwnd, TEXT("cdaudio-winmm player\nversion 1.5 (c) 2022\n\nRestores track repeat\nand volume control\nin Vista and later."), TEXT("About"), MB_OK);
 				break;
 			}
 		break;
@@ -956,27 +1046,27 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 	return 0;
 }
 
-/* Main Window process: */
+// Main Window process: 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, 
 	LPSTR lpCmdLine, int nCmdShow)
 {
-	/* Checks that program is not already running: */
+	// Checks that program is not already running: 
 	CreateMutexA(NULL, TRUE, "cdaudioplrMutex");
 	if (GetLastError() == ERROR_ALREADY_EXISTS)
 	{
 		return 0;
 	}
 
-	/* When cdaudioplr.exe is auto-started by the wrapper it may inherit the CPU 
-	affinity of the game program. A particularly problematic case is the original 
-	Midtown Madness game executable which runs in a high priority class and sets
-	the player to run on the first CPU core (single core affinity). This results 
-	in the player hanging unless the mouse cursor is moved around. */
+	// When cdaudioplr.exe is auto-started by the wrapper it may inherit the CPU 
+	// affinity of the game program. A particularly problematic case is the original 
+	// Midtown Madness game executable which runs in a high priority class and sets
+	// the player to run on the first CPU core (single core affinity). This results 
+	// in the player hanging unless the mouse cursor is moved around. 
 
-	/* Set cdaudioplr.exe to run in high priority */
-	/* SetPriorityClass(GetCurrentProcess(), HIGH_PRIORITY_CLASS); */
+	// Set cdaudioplr.exe to run in high priority 
+	// SetPriorityClass(GetCurrentProcess(), HIGH_PRIORITY_CLASS); 
 
-	/* Set affinity to last CPU core */
+	// Set affinity to last CPU core
 	SYSTEM_INFO sysinfo;
 	GetSystemInfo(&sysinfo);
 	int lastcore = sysinfo.dwNumberOfProcessors;
@@ -1006,7 +1096,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 		return 0;
 	}
 
-	/* Check that winmm.dll & cdaudioplr.exe are not in the same dir: */
+	// Check that winmm.dll & cdaudioplr.exe are not in the same dir: 
 	struct stat sb;
 	char file[] = ".\\cdaudioplr.exe";
 	char file2[] = ".\\winmm.dll";
@@ -1018,8 +1108,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 		return 0;
 	}
 
-	/* Check for Win version. If less than Vista quit. */
-	/*
+	// Check for Win version. If less than Vista quit. 
 	DWORD dwVersion = 0; 
 	dwVersion = GetVersion();
 	if (dwVersion < 590000000)
@@ -1028,14 +1117,14 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 			MB_ICONEXCLAMATION | MB_OK);
 		return 0;
 	}
-	*/
+	
 
 	hwnd = CreateWindowEx(
 		WS_EX_CLIENTEDGE,
 		g_szClassName,
 		"cdaudio-winmm player",
 		WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX,
-		CW_USEDEFAULT, CW_USEDEFAULT, 340, 220,
+		CW_USEDEFAULT, CW_USEDEFAULT, 300, 100,
 		NULL, NULL, hInstance, NULL);
 
 	if(hwnd == NULL)
@@ -1047,34 +1136,38 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 
 	g_hMainWindow = hwnd;
 
-	ShowWindow(hwnd, SW_SHOWNOACTIVATE); /* Start with inactive window. */
+	ShowWindow(hwnd, SW_SHOWNOACTIVATE); // Start with inactive window. 
 	UpdateWindow(hwnd);
 
-	/* Set working directory to module directory: */
+	// Set working directory to module directory: 
 	char szFileName[MAX_PATH];
 	GetModuleFileName(hInstance, szFileName, MAX_PATH);
 	int len = strlen(szFileName);
-	szFileName[len-14] = '\0'; /* delete cdaudioplr.exe from string. */
+	szFileName[len-14] = '\0'; // delete cdaudioplr.exe from string. 
 	SetCurrentDirectory(szFileName);
 
-	/* debug logging */
+	// debug logging 
 	#ifdef _DEBUG
-	fh = fopen("cdaudioplr.log", "w");
+		int bLog = GetPrivateProfileInt("options", "Log", 0, ".\\cdaudio_vol.ini");
+		if(bLog)fh = fopen("cdaudioplr.log", "w");
 	#endif
 	dprintf("Beginning of debug log:\n");
 
-	/* Start threads: */
+	// Set timer
+	// SetTimer(hwnd, 1, 10, NULL);
+	
+	// Start threads: 
 	reader = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)reader_main, NULL, 0, NULL);
 	player = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)player_main, NULL, 0, NULL);
 
-	/* Message Loop: */
+	// Message Loop: 
 	while(GetMessage(&Msg, NULL, 0, 0) > 0 && !quit)
 	{
 		TranslateMessage(&Msg);
 		DispatchMessage(&Msg);
 	}
 
-	/* debug logging */
+	// debug logging 
 	dprintf("End of debug log.\n");
 	#ifdef _DEBUG
 	if (fh)
