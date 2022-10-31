@@ -1,3 +1,7 @@
+# Work in progress...
+
+- update cdaudio-winmm to match improvements in ogg-winmm.
+
 # cdaudio-winmm player (beta v.0.4.0.3) -UPDATED-:
 
 NEW EDITS:
