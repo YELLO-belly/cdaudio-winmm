@@ -621,7 +621,7 @@ MCIERROR WINAPI fake_mciSendCommandA(MCIDEVICEID IDDevice, UINT uMsg, DWORD_PTR 
 				if (parms->dwItem == MCI_STATUS_CURRENT_TRACK)
 				{
 					dprintf("	   MCI_STATUS_CURRENT_TRACK\r\n");
-					//parms->dwReturn = current;
+					//TODO
 				}
 
 				if (parms->dwItem == MCI_STATUS_LENGTH)
@@ -631,6 +631,7 @@ MCIERROR WINAPI fake_mciSendCommandA(MCIDEVICEID IDDevice, UINT uMsg, DWORD_PTR 
 					// Get track length 
 					if(fdwCommand & MCI_TRACK)
 					{
+						mciStatusRet = 0;
 						// Write track_length request: 
 						HANDLE Mailslot = CreateFile(ServerName, GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
 						snprintf(dwFrom_str, 64, "%d", parms->dwTrack);
@@ -668,6 +669,7 @@ MCIERROR WINAPI fake_mciSendCommandA(MCIDEVICEID IDDevice, UINT uMsg, DWORD_PTR 
 					// Get full length 
 					else
 					{
+						mciStatusRet = 0;
 						// Write full_length request: 
 						HANDLE Mailslot = CreateFile(ServerName, GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
 						WriteFile(Mailslot, "full_length", 64, &BytesWritten, NULL);
@@ -728,6 +730,7 @@ MCIERROR WINAPI fake_mciSendCommandA(MCIDEVICEID IDDevice, UINT uMsg, DWORD_PTR 
 
 					if (fdwCommand & MCI_TRACK)
 					{
+						mciStatusRet = 0;
 						// Write track_pos request: 
 						HANDLE Mailslot = CreateFile(ServerName, GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
 						snprintf(dwFrom_str, 64, "%d", parms->dwTrack);
@@ -783,6 +786,7 @@ MCIERROR WINAPI fake_mciSendCommandA(MCIDEVICEID IDDevice, UINT uMsg, DWORD_PTR 
 
 					// Current position
 					else {
+						mciStatusRet = 0;
 						// Write cur_pos request: 
 						HANDLE Mailslot = CreateFile(ServerName, GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
 						WriteFile(Mailslot, "cur_pos", 64, &BytesWritten, NULL);
@@ -1209,14 +1213,14 @@ MCIERROR WINAPI fake_mciSendStringA(LPCTSTR cmd, LPTSTR ret, UINT cchReturn, HAN
 			return 0;
 		}
 		if(time_format == MCI_FORMAT_MSF){
-			// WIP
+			//TODO
 		}
 		else if(time_format == MCI_FORMAT_TMSF){
-			// WIP
+			//TODO
 		}
 		// Milliseconds
 		else{
-			// WIP
+			//TODO
 		}
 	}
 
