@@ -59,11 +59,10 @@ int MAGIC_DEVICEID = 1;
 
 int notfy_flag = 0;
 char alias_s[100] = "cdaudio";
-int once = 1;
-int playing = 0;
 int time_format = MCI_FORMAT_MSF;
-int numTracks = 99; // default: MAX 99 tracks 
+int numTracks = 0; // default: MAX 99 tracks 
 int mciStatusRet = 0;
+int once = 0;
 
 CRITICAL_SECTION cs;
 HANDLE reader = NULL;
@@ -137,6 +136,10 @@ int reader_main( void )
 					sscanf(buffer,"%d:%d:%d:%d", &tt_s, &tm_s, &ts_s, &tf_s);
 					mciStatusRet = value;
 				}
+				// Read current track: 
+				if(strstr(buffer,"cur_t")){
+					mciStatusRet = value;
+				}
 		}
 	}
 }
@@ -186,17 +189,11 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 
 MCIERROR WINAPI fake_mciSendCommandA(MCIDEVICEID IDDevice, UINT uMsg, DWORD_PTR fdwCommand, DWORD_PTR dwParam)
 {
-	if(once){
-		Sleep(300); // Sleep a bit to ensure cdaudioplr.exe is initialized.
-
-		// Ask for no. of tracks:
-		HANDLE Mailslot = CreateFile(ServerName, GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-		WriteFile(Mailslot, "mci_tracks", 64, &BytesWritten, NULL);
-		CloseHandle(Mailslot);
-
-		Sleep(20); // To ensure we get the no. of tracks 
-		once = 0;
+	if (!once) {
+		once = 1;
+		Sleep(400); // Sleep a bit to ensure cdaudioplr.exe is initialized.
 	}
+	
 	char cmdbuf[1024];
 
 	dprintf("mciSendCommandA(IDDevice=%p, uMsg=%p, fdwCommand=%p, dwParam=%p)\r\n", IDDevice, uMsg, fdwCommand, dwParam);
@@ -335,23 +332,54 @@ MCIERROR WINAPI fake_mciSendCommandA(MCIDEVICEID IDDevice, UINT uMsg, DWORD_PTR 
 					CloseHandle(Mailslot);
 				}
 			}
+			if (fdwCommand & MCI_NOTIFY)
+			{
+				dprintf("  MCI_NOTIFY\r\n");
+				dprintf("  Sending MCI_NOTIFY_SUCCESSFUL message...\r\n");
+				SendMessageA((HWND)0xffff, MM_MCINOTIFY, MCI_NOTIFY_SUCCESSFUL, MAGIC_DEVICEID);
+				Sleep(50);
+			}
 		}
 
-		// TODO
 		if (uMsg == MCI_SEEK)
 		{
 			LPMCI_SEEK_PARMS parms = (LPVOID)dwParam;
-			
+
 			dprintf("  MCI_SEEK\r\n");
+			if(mode==2 && notfy_flag)SendMessageA((HWND)0xffff, MM_MCINOTIFY, MCI_NOTIFY_ABORTED, MAGIC_DEVICEID);
+			notfy_flag = 0;
+
+			// Write MCI_STOP: 
+			HANDLE Mailslot = CreateFile(ServerName, GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+			WriteFile(Mailslot, "mci_stop", 64, &BytesWritten, NULL);
+			CloseHandle(Mailslot);
+
+			// Wait for mode change. Max 1000msec sleep.
+			int counter = 0;
+			while(mode == 2 && counter < 100)
+			{
+				Sleep(10); // Wait for mode change. 
+				counter ++;
+			}
+
+			mode = 1;
 
 			if (fdwCommand & MCI_SEEK_TO_START)
 			{
 				dprintf("	 Seek to firstTrack \r\n");
+				char mci_seek_string[] = "seek cdaudio to start";
+				HANDLE Mailslot = CreateFile(ServerName, GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+				WriteFile(Mailslot, mci_seek_string, 64, &BytesWritten, NULL);
+				CloseHandle(Mailslot);
 			}
 
 			if (fdwCommand & MCI_SEEK_TO_END)
 			{
 				dprintf("	 Seek to end of disc\r\n");
+				char mci_seek_string[] = "seek cdaudio to end";
+				HANDLE Mailslot = CreateFile(ServerName, GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+				WriteFile(Mailslot, mci_seek_string, 64, &BytesWritten, NULL);
+				CloseHandle(Mailslot);
 			}
 			
 			if (fdwCommand & MCI_TO)
@@ -360,6 +388,13 @@ MCIERROR WINAPI fake_mciSendCommandA(MCIDEVICEID IDDevice, UINT uMsg, DWORD_PTR 
 
 				if (time_format == MCI_FORMAT_TMSF)
 				{
+					// Write MCI_FROM:
+					HANDLE Mailslot = CreateFile(ServerName, GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+					snprintf(dwFrom_str, 64, "%d %d %d %d", MCI_TMSF_FRAME(parms->dwTo), 
+					MCI_TMSF_SECOND(parms->dwTo), MCI_TMSF_MINUTE(parms->dwTo), MCI_TMSF_TRACK(parms->dwTo));
+					WriteFile(Mailslot, strcat(dwFrom_str, " mci_from"), 64, &BytesWritten, NULL);
+					CloseHandle(Mailslot);
+					
 					dprintf("	   TRACK  %d\n", MCI_TMSF_TRACK(parms->dwTo));
 					dprintf("	   MINUTE %d\n", MCI_TMSF_MINUTE(parms->dwTo));
 					dprintf("	   SECOND %d\n", MCI_TMSF_SECOND(parms->dwTo));
@@ -367,14 +402,34 @@ MCIERROR WINAPI fake_mciSendCommandA(MCIDEVICEID IDDevice, UINT uMsg, DWORD_PTR 
 				}
 				else if (time_format == MCI_FORMAT_MILLISECONDS)
 				{
-					dprintf("	   mapped milliseconds to \n");
+					// Write MCI_FROM:
+					HANDLE Mailslot = CreateFile(ServerName, GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+					snprintf(dwFrom_str, 64, "0 0 0 %d", parms->dwTo);
+					WriteFile(Mailslot, strcat(dwFrom_str, " mci_from"), 64, &BytesWritten, NULL);
+					CloseHandle(Mailslot);
+					
+					dprintf("	   milliseconds %d\n", parms->dwTo);
 				}
 				else // MCI_FORMAT_MSF
 				{
+					// Write MCI_FROM:
+					HANDLE Mailslot = CreateFile(ServerName, GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+					snprintf(dwFrom_str, 64, "%d %d %d 0", MCI_MSF_FRAME(parms->dwTo), 
+					MCI_MSF_SECOND(parms->dwTo), MCI_MSF_MINUTE(parms->dwTo));
+					WriteFile(Mailslot, strcat(dwFrom_str, " mci_from"), 64, &BytesWritten, NULL);
+					CloseHandle(Mailslot);
+					
 					dprintf("	   MINUTE %d\n", MCI_MSF_MINUTE(parms->dwTo));
 					dprintf("	   SECOND %d\n", MCI_MSF_SECOND(parms->dwTo));
 					dprintf("	   FRAME  %d\n", MCI_MSF_FRAME(parms->dwTo));
 				}
+			}
+			if (fdwCommand & MCI_NOTIFY)
+			{
+				dprintf("  MCI_NOTIFY\r\n");
+				dprintf("  Sending MCI_NOTIFY_SUCCESSFUL message...\r\n");
+				SendMessageA((HWND)0xffff, MM_MCINOTIFY, MCI_NOTIFY_SUCCESSFUL, MAGIC_DEVICEID);
+				Sleep(50);
 			}
 		}
 
@@ -386,6 +441,7 @@ MCIERROR WINAPI fake_mciSendCommandA(MCIDEVICEID IDDevice, UINT uMsg, DWORD_PTR 
 		if (uMsg == MCI_CLOSE)
 		{
 			dprintf("  MCI_CLOSE\r\n");
+			time_format = MCI_FORMAT_MSF;
 		}
 
 		if (uMsg == MCI_PLAY)
@@ -502,22 +558,22 @@ MCIERROR WINAPI fake_mciSendCommandA(MCIDEVICEID IDDevice, UINT uMsg, DWORD_PTR 
 			WriteFile(Mailslot, "mci_play", 64, &BytesWritten, NULL);
 			CloseHandle(Mailslot);
 
-			// Wait for mode change. Max 300msec sleep.
+			// Wait for mode change. Max 1000msec sleep.
 			int counter = 0;
-			while(mode == 1 && counter < 30)
+			while(mode == 1 && counter < 100)
 			{
 				Sleep(10); // Wait for mode change. 
 				counter ++;
 			}
 
-			playing = 1;
+			mode = 2;
 		}
 
-		if (uMsg == MCI_STOP)
+		if (uMsg == MCI_PAUSE || uMsg == MCI_STOP)
 		{
-			dprintf("  MCI_STOP\r\n");
-			if(playing && notfy_flag)SendMessageA((HWND)0xffff, MM_MCINOTIFY, MCI_NOTIFY_ABORTED, MAGIC_DEVICEID);
-			playing = 0;
+			if(uMsg == MCI_STOP)dprintf("  MCI_STOP\r\n");
+			if(uMsg == MCI_PAUSE)dprintf("  MCI_PAUSE\r\n");
+			if(mode==2 && notfy_flag)SendMessageA((HWND)0xffff, MM_MCINOTIFY, MCI_NOTIFY_ABORTED, MAGIC_DEVICEID);
 			notfy_flag = 0;
 
 			// Write MCI_STOP: 
@@ -525,34 +581,15 @@ MCIERROR WINAPI fake_mciSendCommandA(MCIDEVICEID IDDevice, UINT uMsg, DWORD_PTR 
 			WriteFile(Mailslot, "mci_stop", 64, &BytesWritten, NULL);
 			CloseHandle(Mailslot);
 			
-			// Wait for mode change. Max 3000msec sleep.
+			// Wait for mode change. Max 1000msec sleep.
 			int counter = 0;
-			while(mode == 2 && counter < 300)
+			while(mode == 2 && counter < 100)
 			{
 				Sleep(10); // Wait for mode change. 
 				counter ++;
 			}
-		}
 
-		if (uMsg == MCI_PAUSE)
-		{
-			dprintf("  MCI_PAUSE\r\n");
-			if(playing && notfy_flag)SendMessageA((HWND)0xffff, MM_MCINOTIFY, MCI_NOTIFY_ABORTED, MAGIC_DEVICEID);
-			playing = 0;
-			notfy_flag = 0;
-
-			// Write MCI_PAUSE: 
-			HANDLE Mailslot = CreateFile(ServerName, GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-			WriteFile(Mailslot, "mci_pause", 64, &BytesWritten, NULL);
-			CloseHandle(Mailslot);
-			
-			// Wait for mode change. Max 3000msec sleep.
-			int counter = 0;
-			while(mode == 2 && counter < 300)
-			{
-				Sleep(10); // Wait for mode change. 
-				counter ++;
-			}
+			mode = 1;
 		}
 
 		if (uMsg == MCI_INFO)
@@ -621,7 +658,20 @@ MCIERROR WINAPI fake_mciSendCommandA(MCIDEVICEID IDDevice, UINT uMsg, DWORD_PTR 
 				if (parms->dwItem == MCI_STATUS_CURRENT_TRACK)
 				{
 					dprintf("	   MCI_STATUS_CURRENT_TRACK\r\n");
-					//TODO
+
+					HANDLE Mailslot = CreateFile(ServerName, GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+					WriteFile(Mailslot, "current_track", 64, &BytesWritten, NULL);
+					CloseHandle(Mailslot);
+					
+					// Wait for response:
+					int counter = 0;
+					while(mciStatusRet == 0 && counter < 30)
+					{
+						Sleep(10);
+						counter ++;
+					}
+					parms->dwReturn = mciStatusRet;
+					mciStatusRet = 0;
 				}
 
 				if (parms->dwItem == MCI_STATUS_LENGTH)
@@ -652,6 +702,13 @@ MCIERROR WINAPI fake_mciSendCommandA(MCIDEVICEID IDDevice, UINT uMsg, DWORD_PTR 
 						}
 						else // MSF & TMSF
 						{
+							/*
+							Sleep(50);
+							HANDLE Mailslot = CreateFile(ServerName, GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+							WriteFile(Mailslot, strcat(dwFrom_str, " track_length"), 64, &BytesWritten, NULL);
+							CloseHandle(Mailslot);
+							*/
+							
 							// Wait for response:
 							int counter = 0;
 							while(mciStatusRet == 0 && counter < 30)
@@ -659,6 +716,7 @@ MCIERROR WINAPI fake_mciSendCommandA(MCIDEVICEID IDDevice, UINT uMsg, DWORD_PTR 
 								Sleep(10);
 								counter ++;
 							}
+							
 							parms->dwReturn = MCI_MAKE_MSF(m_s,s_s,f_s);
 							mciStatusRet = 0;
 							m_s=0;
@@ -720,7 +778,21 @@ MCIERROR WINAPI fake_mciSendCommandA(MCIDEVICEID IDDevice, UINT uMsg, DWORD_PTR 
 				if (parms->dwItem == MCI_STATUS_NUMBER_OF_TRACKS)
 				{
 					dprintf("	   MCI_STATUS_NUMBER_OF_TRACKS\r\n");
-					parms->dwReturn = numTracks;
+					if(numTracks == 0){
+						// Ask for no. of tracks:
+						HANDLE Mailslot = CreateFile(ServerName, GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+						WriteFile(Mailslot, "mci_tracks", 64, &BytesWritten, NULL);
+						CloseHandle(Mailslot);
+					}
+					// Wait for response:
+					int counter = 0;
+					while(numTracks == 0 && counter < 500)
+					{
+						Sleep(10);
+						counter ++;
+					}
+					if(numTracks == 0)parms->dwReturn = 99;
+					else parms->dwReturn = numTracks;
 				}
 
 				if (parms->dwItem == MCI_STATUS_POSITION)
@@ -751,7 +823,7 @@ MCIERROR WINAPI fake_mciSendCommandA(MCIDEVICEID IDDevice, UINT uMsg, DWORD_PTR 
 						}
 						// TMSF
 						else if (time_format == MCI_FORMAT_TMSF)
-						{
+						{							
 							// Wait for response:
 							int counter = 0;
 							while(mciStatusRet == 0 && counter < 30)
@@ -843,7 +915,7 @@ MCIERROR WINAPI fake_mciSendCommandA(MCIDEVICEID IDDevice, UINT uMsg, DWORD_PTR 
 				if (parms->dwItem == MCI_STATUS_MODE)
 				{
 					dprintf("	   MCI_STATUS_MODE\r\n");
-					if(mode == 1 || playing == 0){
+					if(mode == 1){
 						parms->dwReturn = MCI_MODE_STOP;
 						dprintf("		 Stopped\r\n");
 					}
@@ -1091,14 +1163,20 @@ MCIERROR WINAPI fake_mciSendStringA(LPCTSTR cmd, LPTSTR ret, UINT cchReturn, HAN
 		if (strstr(cmdbuf, "number of tracks"))
 		{
 			dprintf("  Returning number of tracks (%d)\r\n", numTracks);
+			static MCI_STATUS_PARMS parms;
+			parms.dwItem = MCI_STATUS_NUMBER_OF_TRACKS;
+			fake_mciSendCommandA(MAGIC_DEVICEID, MCI_STATUS, MCI_STATUS_ITEM, (DWORD_PTR)&parms);
 			sprintf(ret, "%d", numTracks);
 			return 0;
 		}
 
-		//TODO
 		if (strstr(cmdbuf, "current track"))
 		{
 			dprintf("  Current track is \r\n");
+			static MCI_STATUS_PARMS parms;
+			parms.dwItem = MCI_STATUS_CURRENT_TRACK;
+			fake_mciSendCommandA(MAGIC_DEVICEID, MCI_STATUS, MCI_STATUS_ITEM, (DWORD_PTR)&parms);
+			sprintf(ret, "%d", parms.dwReturn);
 			return 0;
 		}
 
@@ -1189,7 +1267,7 @@ MCIERROR WINAPI fake_mciSendStringA(LPCTSTR cmd, LPTSTR ret, UINT cchReturn, HAN
 		// Add: Mode handling 
 		if (strstr(cmdbuf, "mode"))
 		{
-			if(mode == 1 || playing == 0){
+			if(mode == 1){
 				dprintf("	-> stopped\r\n");
 				strcpy(ret, "stopped");
 				}
@@ -1201,27 +1279,52 @@ MCIERROR WINAPI fake_mciSendStringA(LPCTSTR cmd, LPTSTR ret, UINT cchReturn, HAN
 		}
 	}
 
-	// Handle Seek cdaudio
+	// Handle "seek cdaudio/alias"
 	sprintf(cmp_str, "seek %s", alias_s);
 	if (strstr(cmdbuf, cmp_str)){
-		if (strstr(cmdbuf, "to start")){
-			fake_mciSendCommandA(MAGIC_DEVICEID, MCI_SEEK, MCI_SEEK_TO_START, (DWORD_PTR)NULL);
-			return 0;
+
+		// Replace any "alias" name with cdaudio:
+		char rewrite[] = "cdaudio";
+		char* mci_seek_string;
+		int i, cnt = 0;
+		int Newlength = strlen(rewrite);
+		int Oldlength = strlen(alias_s);
+
+		for (i = 0; cmd[i] != '\0'; i++) {
+			if (strstr(&cmd[i], alias_s) == &cmd[i]) {
+				cnt++;
+				i += Oldlength - 1;
+			}
 		}
-		if (strstr(cmdbuf, "to end")){
-			fake_mciSendCommandA(MAGIC_DEVICEID, MCI_SEEK, MCI_SEEK_TO_END, (DWORD_PTR)NULL);
-			return 0;
+		mci_seek_string = (char*)malloc(i + cnt * (Newlength - Oldlength) + 1);
+		i = 0;
+		while (*cmd) {
+			if (strstr(cmd, alias_s) == cmd) {
+				strcpy(&mci_seek_string[i], rewrite);
+				i += Newlength;
+				cmd += Oldlength;
+			}
+			else {
+				mci_seek_string[i++] = *cmd++;
+			}
 		}
-		if(time_format == MCI_FORMAT_MSF){
-			//TODO
+		mci_seek_string[i] = '\0';
+
+		// Send rewritten string to the player: 
+		HANDLE Mailslot = CreateFile(ServerName, GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+		WriteFile(Mailslot, mci_seek_string, 64, &BytesWritten, NULL);
+		CloseHandle(Mailslot);
+
+		// Wait for mode change. Max 1000msec sleep.
+		int counter = 0;
+		while(mode == 2 && counter < 100)
+		{
+			Sleep(10); // Wait for mode change. 
+			counter ++;
 		}
-		else if(time_format == MCI_FORMAT_TMSF){
-			//TODO
-		}
-		// Milliseconds
-		else{
-			//TODO
-		}
+		mode = 1; // Seek stops playback
+
+		return 0;
 	}
 
 	// Handle "play cdaudio/alias" 
@@ -1232,22 +1335,22 @@ MCIERROR WINAPI fake_mciSendStringA(LPCTSTR cmd, LPTSTR ret, UINT cchReturn, HAN
 		char rewrite[] = "cdaudio";
 		char* mci_play_string;
 		int i, cnt = 0;
-		int NewLenght = strlen(rewrite);
-		int OldLenght = strlen(alias_s);
+		int Newlength = strlen(rewrite);
+		int Oldlength = strlen(alias_s);
 
 		for (i = 0; cmd[i] != '\0'; i++) {
 			if (strstr(&cmd[i], alias_s) == &cmd[i]) {
 				cnt++;
-				i += OldLenght - 1;
+				i += Oldlength - 1;
 			}
 		}
-		mci_play_string = (char*)malloc(i + cnt * (NewLenght - OldLenght) + 1);
+		mci_play_string = (char*)malloc(i + cnt * (Newlength - Oldlength) + 1);
 		i = 0;
 		while (*cmd) {
 			if (strstr(cmd, alias_s) == cmd) {
 				strcpy(&mci_play_string[i], rewrite);
-				i += NewLenght;
-				cmd += OldLenght;
+				i += Newlength;
+				cmd += Oldlength;
 			}
 			else {
 				mci_play_string[i++] = *cmd++;
@@ -1260,16 +1363,14 @@ MCIERROR WINAPI fake_mciSendStringA(LPCTSTR cmd, LPTSTR ret, UINT cchReturn, HAN
 		WriteFile(Mailslot, mci_play_string, 64, &BytesWritten, NULL);
 		CloseHandle(Mailslot);
 
-		// Wait for mode change. Max 300msec sleep.
-		
+		// Wait for mode change. Max 1000msec sleep.
 		int counter = 0;
-		while(mode == 1 && counter < 30)
+		while(mode == 1 && counter < 100)
 		{
 			Sleep(10); // Wait for mode change. 
 			counter ++;
 		}
-		
-		playing = 1;
+		mode=2;
 
 		return 0;
 	}
@@ -1307,15 +1408,11 @@ MMRESULT WINAPI fake_auxGetVolume(UINT uDeviceID, LPDWORD lpdwVolume)
 
 MMRESULT WINAPI fake_auxSetVolume(UINT uDeviceID, DWORD dwVolume)
 {
-	if(once){
-		Sleep(300); // Sleep a bit to ensure cdaudioplr.exe is initialized.
-		// Ask for no. of tracks:
-		HANDLE Mailslot = CreateFile(ServerName, GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-		WriteFile(Mailslot, "mci_tracks", 64, &BytesWritten, NULL);
-		CloseHandle(Mailslot);
-		Sleep(20); // To ensure we get the no. of tracks
-		once = 0;
+	if (!once) {
+		once = 1;
+		Sleep(400); // Sleep a bit to ensure cdaudioplr.exe is initialized.
 	}
+	
 	static DWORD oldVolume = -1;
 	char cmdbuf[256];
 
