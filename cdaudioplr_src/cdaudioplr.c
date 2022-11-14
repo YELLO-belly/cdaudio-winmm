@@ -81,10 +81,13 @@ char media[64] = "";
 char tracks_s[64] = "";
 char length_s[64] = "";
 char pos_s[64] = "";
+char cur_t_s[64] = "";
 char play_cmd[512] = "";
+char seek_cmd[512] = "";
 char track_cmd[512] = "";
 char ini_dir[256] = "";
 
+int seek = 0;
 int pos_int = 0;
 int pos_t_int = 0;
 int length_int = 0;
@@ -100,6 +103,8 @@ int mci_to_m = 0;
 int mci_to_s = 0;
 int mci_to_f = 0;
 
+int mci_tracks = 0;
+int cur_track = 0;
 int skip_cmd = 0;
 int mci_play = 0;
 int mci_play_pump = 0;
@@ -137,10 +142,8 @@ int reader_main( void )
 
 				// Read mci_tracks
 				if(strstr(buffer,"mci_tracks")){
-					// Write no. of tracks for winmm wrapper:
-					HANDLE Mailslot = CreateFile(ServerName, GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-					WriteFile(Mailslot, strcat(tracks_s, " tracks"), 64, &BytesWritten, NULL);
-					CloseHandle(Mailslot);
+					mci_tracks = 1;
+					SetWindowText(hEdit, TEXT("Command: MCI_STATUS_NUMBER_OF_TRACKS"));
 				}
 
 				// Read notify msg request:
@@ -185,6 +188,42 @@ int reader_main( void )
 					}
 					
 					SetWindowText(hEdit, TEXT("Command: MCI_PLAY"));
+				}
+
+				// Read MCI_SEEK from a string:
+				if(strstr(buffer,"seek cdaudio")){
+					mci_pause = 0;
+					mci_play = 0;
+					notify_msg = 0;
+					fgets(buffer,512,stdin);
+					strcpy(seek_cmd,buffer);
+					
+					// Look for notify word and remove it from string
+					if(strstr(seek_cmd,"notify")){
+						
+						char word[20] = "notify";
+						int i, j, len_str, len_word, temp, chk=0;
+						
+						len_str = strlen(seek_cmd);
+						len_word = strlen(word);
+						for(i=0; i<len_str; i++){
+							temp = i;
+							for(j=0; j<len_word; j++){
+								if(seek_cmd[i]==word[j])
+								i++;
+							}
+							chk = i-temp;
+							if(chk==len_word){
+								i = temp;
+								for(j=i; j<(len_str-len_word); j++)
+								seek_cmd[j] = seek_cmd[j+len_word];
+								len_str = len_str-len_word;
+								seek_cmd[j]='\0';
+							}
+						}
+					}
+					seek = 1;
+					SetWindowText(hEdit, TEXT("Command: MCI_SEEK(string)"));
 				}
 
 				// Read MCI_PLAY from a string:
@@ -235,15 +274,7 @@ int reader_main( void )
 					mci_pause = 1;
 					mci_play = 0;
 					notify_msg = 0;
-					SetWindowText(hEdit, TEXT("Command: MCI_STOP"));
-				}
-
-				// Read MCI_PAUSE:
-				if(strstr(buffer,"mci_pause")){
-					mci_pause = 1;
-					mci_play = 0;
-					notify_msg = 0;
-					SetWindowText(hEdit, TEXT("Command: MCI_PAUSE"));
+					SetWindowText(hEdit, TEXT("Command: MCI_STOP/PAUSE"));
 				}
 
 				// Read track length:
@@ -254,37 +285,12 @@ int reader_main( void )
 					SetWindowText(hEdit, TEXT("Command: MCI_STATUS_LENGTH|MCI_TRACK"));
 					sprintf(track_cmd, "status cdaudio length track %d wait", mci_track);
 					length_t_int = 1;
-					// Wait for response:
-					int counter = 0;
-					while(length_t_int == 1 && counter < 30)
-					{
-						Sleep(10);
-						counter ++;
-					}
-					// Write result to winmm wrapper:
-					HANDLE Mailslot = CreateFile(ServerName, GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-					WriteFile(Mailslot, strcat(length_s, " length_t"), 64, &BytesWritten, NULL);
-					CloseHandle(Mailslot);
-					sprintf(track_cmd,"");
-					sprintf(length_s,"");
 				}
 
 				// Read full length:
 				if(strstr(buffer,"full_length")){
 					SetWindowText(hEdit, TEXT("Command: MCI_STATUS_LENGTH"));
 					length_int = 1;
-					// Wait for response:
-					int counter = 0;
-					while(length_int == 1 && counter < 30)
-					{
-						Sleep(10);
-						counter ++;
-					}
-					// Write result to winmm wrapper:
-					HANDLE Mailslot = CreateFile(ServerName, GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-					WriteFile(Mailslot, strcat(length_s, " length"), 64, &BytesWritten, NULL);
-					CloseHandle(Mailslot);
-					sprintf(length_s,"");
 				}
 
 				// Read track position:
@@ -295,37 +301,18 @@ int reader_main( void )
 					SetWindowText(hEdit, TEXT("Command: MCI_STATUS_POSITION|MCI_TRACK"));
 					sprintf(track_cmd, "status cdaudio position track %d wait", mci_track);
 					pos_t_int = 1;
-					// Wait for response:
-					int counter = 0;
-					while(pos_t_int == 1 && counter < 30)
-					{
-						Sleep(10);
-						counter ++;
-					}
-					// Write result to winmm wrapper:
-					HANDLE Mailslot = CreateFile(ServerName, GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-					WriteFile(Mailslot, strcat(pos_s, " pos_t"), 64, &BytesWritten, NULL);
-					CloseHandle(Mailslot);
-					sprintf(track_cmd,"");
-					sprintf(pos_s,"");
 				}
 
 				// Read current position:
 				if(strstr(buffer,"cur_pos")){
 					SetWindowText(hEdit, TEXT("Command: MCI_STATUS_POSITION"));
 					pos_int = 1;
-					// Wait for response:
-					int counter = 0;
-					while(pos_int == 1 && counter < 30)
-					{
-						Sleep(10);
-						counter ++;
-					}
-					// Write result to winmm wrapper:
-					HANDLE Mailslot = CreateFile(ServerName, GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-					WriteFile(Mailslot, strcat(pos_s, " pos"), 64, &BytesWritten, NULL);
-					CloseHandle(Mailslot);
-					sprintf(pos_s,"");
+				}
+
+				// Read current track:
+				if(strstr(buffer,"current_track")){
+					SetWindowText(hEdit, TEXT("Command: Current Track"));
+					cur_track = 1;
 				}
 
 				// Read aux volume:
@@ -433,21 +420,14 @@ int player_main( void )
 	// Loop to check if CD is inserted: 
 	while(strcmp(media,"true")!=0)
 	{
-		SetWindowText(hEdit, TEXT("Looking for CD."));
+		SetWindowText(hEdit, TEXT("Looking for CD ..."));
 		mciSendStringA("status cdaudio media present wait", media, 64, NULL);
-		Sleep(200);
-		SetWindowText(hEdit, TEXT("Looking for CD.."));
-		Sleep(200);
-		SetWindowText(hEdit, TEXT("Looking for CD..."));
-		Sleep(200);
+		Sleep(100);
 	}
 	SetWindowText(hEdit, TEXT("CD Found... READY."));
-
-	// Get the number of CD tracks: 
+	
 	mciSendStringA("status cdaudio number of tracks wait", tracks_s, 64, NULL);
-	// convert to int: 
-	sscanf(tracks_s, "%d", &tracks); // tracks = atoi(tracks_s); 
-	//dprintf("Tracks: %d\n", tracks);
+	sscanf(tracks_s, "%d", &tracks);
 
 	// Close/Open cdaudio: 
 	mciSendStringA("close cdaudio wait", NULL, 0, NULL); // Important! 
@@ -456,6 +436,15 @@ int player_main( void )
 	// Waiting loop:
 	while(1)
 	{
+		if(mci_tracks){
+			mciSendStringA("status cdaudio number of tracks wait", tracks_s, 64, NULL);
+			sscanf(tracks_s, "%d", &tracks);
+			mci_tracks = 0;
+			// Write no. of tracks for winmm wrapper:
+			HANDLE Mailslot = CreateFile(ServerName, GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+			WriteFile(Mailslot, strcat(tracks_s, " tracks"), 64, &BytesWritten, NULL);
+			CloseHandle(Mailslot);
+		}
 		if(mci_time==0 && mci_time_set){
 			mciSendStringA("set cdaudio time format msf wait", NULL, 0, NULL);
 			mci_time_set = 0;
@@ -471,24 +460,61 @@ int player_main( void )
 		if(length_int){
 			mciSendStringA("status cdaudio length wait", length_s, 64, NULL);
 			length_int = 0;
+			// Write result to winmm wrapper:
+			HANDLE Mailslot = CreateFile(ServerName, GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+			WriteFile(Mailslot, strcat(length_s, " length"), 64, &BytesWritten, NULL);
+			CloseHandle(Mailslot);
+			sprintf(length_s,"");
 		}
 		if(length_t_int){
 			mciSendStringA(track_cmd, length_s, 64, NULL);
 			length_t_int = 0;
+			// Write result to winmm wrapper:
+			HANDLE Mailslot = CreateFile(ServerName, GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+			WriteFile(Mailslot, strcat(length_s, " length_t"), 64, &BytesWritten, NULL);
+			CloseHandle(Mailslot);
+			sprintf(track_cmd,"");
+			sprintf(length_s,"");
 		}
 		if(pos_int){
 			mciSendStringA("status cdaudio position wait", pos_s, 64, NULL);
 			pos_int = 0;
+			// Write result to winmm wrapper:
+			HANDLE Mailslot = CreateFile(ServerName, GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+			WriteFile(Mailslot, strcat(pos_s, " pos"), 64, &BytesWritten, NULL);
+			CloseHandle(Mailslot);
+			sprintf(pos_s,"");
 		}
 		if(pos_t_int){
 			mciSendStringA(track_cmd, pos_s, 64, NULL);
 			pos_t_int = 0;
+			// Write result to winmm wrapper:
+			HANDLE Mailslot = CreateFile(ServerName, GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+			WriteFile(Mailslot, strcat(pos_s, " pos_t"), 64, &BytesWritten, NULL);
+			CloseHandle(Mailslot);
+			sprintf(track_cmd,"");
+			sprintf(pos_s,"");
+		}
+		if(seek){
+			mciSendStringA(seek_cmd, NULL, 0, NULL);
+			dprintf("seek cmd is: %s\n",seek_cmd);
+			seek = 0;
+		}
+		if(cur_track){
+			mciSendStringA("status cdaudio current track", cur_t_s, 64, NULL);
+			cur_track = 0;
+			// Write result to winmm wrapper:
+			HANDLE Mailslot = CreateFile(ServerName, GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+			WriteFile(Mailslot, strcat(cur_t_s, " cur_t"), 64, &BytesWritten, NULL);
+			CloseHandle(Mailslot);
+			sprintf(cur_t_s,"");
 		}
 
 		// Play loop:
 		while(mci_play)
 		{
 			dprintf("while mci_play loop\n");
+						
 			// Set time format:
 			if(mci_time==0 && mci_time_set){
 				mciSendStringA("set cdaudio time format msf  wait", NULL, 0, NULL);
@@ -562,7 +588,7 @@ int player_main( void )
 			sprintf(play_cmd,"");
 			skip_cmd = 0;
 
-			// Write mode playing for winmm wrapper: 
+			// Write mode playing for winmm wrapper:
 			HANDLE Mailslot = CreateFile(ServerName, GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
 			WriteFile(Mailslot, "2 mode", 64, &BytesWritten, NULL);
 			CloseHandle(Mailslot);
@@ -571,31 +597,70 @@ int player_main( void )
 			// (While mode is playing and position does not change.)
 			while(strcmp(pos1,pos2)==0 && strcmp(mode,"playing")==0 && mci_play)
 			{
-				if(length_int){
-					mciSendStringA("status cdaudio length wait", length_s, 64, NULL);
-					length_int = 0;
-				}
-				if(length_t_int){
-					mciSendStringA(track_cmd, length_s, 64, NULL);
-					length_t_int = 0;
-				}
-				if(pos_int){
-					mciSendStringA("status cdaudio position wait", pos_s, 64, NULL);
-					pos_int = 0;
-				}
-				if(pos_t_int){
-					mciSendStringA(track_cmd, pos_s, 64, NULL);
-					pos_t_int = 0;
-				}
-				
 				dprintf("while CD spin-up loop\n");
 				mciSendStringA("status cdaudio position wait", pos1, 64, NULL);
 				
 				int counter = 0;
-				while(counter < 10)
+				while(counter < 10) // a 100ms sleep seems enough here
 				{
 					if (mci_pause || mci_play_pump){
 						break;
+					}
+					if(length_int){
+						mciSendStringA("status cdaudio length wait", length_s, 64, NULL);
+						length_int = 0;
+						// Write result to winmm wrapper:
+						HANDLE Mailslot = CreateFile(ServerName, GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+						WriteFile(Mailslot, strcat(length_s, " length"), 64, &BytesWritten, NULL);
+						CloseHandle(Mailslot);
+						sprintf(length_s,"");
+					}
+					if(length_t_int){
+						mciSendStringA(track_cmd, length_s, 64, NULL);
+						length_t_int = 0;
+						// Write result to winmm wrapper:
+						HANDLE Mailslot = CreateFile(ServerName, GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+						WriteFile(Mailslot, strcat(length_s, " length_t"), 64, &BytesWritten, NULL);
+						CloseHandle(Mailslot);
+						sprintf(track_cmd,"");
+						sprintf(length_s,"");
+					}
+					if(pos_int){
+						mciSendStringA("status cdaudio position wait", pos_s, 64, NULL);
+						pos_int = 0;
+						// Write result to winmm wrapper:
+						HANDLE Mailslot = CreateFile(ServerName, GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+						WriteFile(Mailslot, strcat(pos_s, " pos"), 64, &BytesWritten, NULL);
+						CloseHandle(Mailslot);
+						sprintf(pos_s,"");
+					}
+					if(pos_t_int){
+						mciSendStringA(track_cmd, pos_s, 64, NULL);
+						pos_t_int = 0;
+						// Write result to winmm wrapper:
+						HANDLE Mailslot = CreateFile(ServerName, GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+						WriteFile(Mailslot, strcat(pos_s, " pos_t"), 64, &BytesWritten, NULL);
+						CloseHandle(Mailslot);
+						sprintf(track_cmd,"");
+						sprintf(pos_s,"");
+					}
+					if(cur_track){
+						mciSendStringA("status cdaudio current track", cur_t_s, 64, NULL);
+						cur_track = 0;
+						// Write result to winmm wrapper:
+						HANDLE Mailslot = CreateFile(ServerName, GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+						WriteFile(Mailslot, strcat(cur_t_s, " cur_t"), 64, &BytesWritten, NULL);
+						CloseHandle(Mailslot);
+						sprintf(cur_t_s,"");
+					}
+					if(mci_tracks){
+						mciSendStringA("status cdaudio number of tracks wait", tracks_s, 64, NULL);
+						sscanf(tracks_s, "%d", &tracks);
+						mci_tracks = 0;
+						// Write no. of tracks for winmm wrapper:
+						HANDLE Mailslot = CreateFile(ServerName, GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+						WriteFile(Mailslot, strcat(tracks_s, " tracks"), 64, &BytesWritten, NULL);
+						CloseHandle(Mailslot);
 					}
 					Sleep(10);
 					counter ++;
@@ -604,7 +669,6 @@ int player_main( void )
 				mciSendStringA("status cdaudio position wait", pos2, 64, NULL);
 				
 				if (mci_pause || mci_play_pump){
-					//mciSendStringA("stop cdaudio", NULL, 0, NULL);
 					break;
 				}
 			}
@@ -612,33 +676,72 @@ int player_main( void )
 			// cdaudio play loop:
 			// (While positions differ track must be playing.)
 			while(strcmp(pos1,pos2)!=0 && strcmp(mode,"playing")==0 && mci_play)
-			{
-				if(length_int){
-					mciSendStringA("status cdaudio length wait", length_s, 64, NULL);
-					length_int = 0;
-				}
-				if(length_t_int){
-					mciSendStringA(track_cmd, length_s, 64, NULL);
-					length_t_int = 0;
-				}
-				if(pos_int){
-					mciSendStringA("status cdaudio position wait", pos_s, 64, NULL);
-					pos_int = 0;
-				}
-				if(pos_t_int){
-					mciSendStringA(track_cmd, pos_s, 64, NULL);
-					pos_t_int = 0;
-				}
-				
+			{				
 				dprintf("actual play loop\n");
 				mciSendStringA("status cdaudio position wait", pos1, 64, NULL);
 				// dprintf("    POS: %s\r", pos1);
 				
 				int counter = 0;
-				while(counter < 30) // Needs a minimum of 200ms sleep to get reliable position data. (Could vary depending on hardware.)
+				while(counter < 50) // Needs a minimum of 400ms sleep to get reliable position data. (Could vary depending on hardware.)
 				{
 					if (mci_play_pump || mci_pause){
 						break;
+					}
+					if(length_int){
+						mciSendStringA("status cdaudio length wait", length_s, 64, NULL);
+						length_int = 0;
+						// Write result to winmm wrapper:
+						HANDLE Mailslot = CreateFile(ServerName, GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+						WriteFile(Mailslot, strcat(length_s, " length"), 64, &BytesWritten, NULL);
+						CloseHandle(Mailslot);
+						sprintf(length_s,"");
+					}
+					if(length_t_int){
+						mciSendStringA(track_cmd, length_s, 64, NULL);
+						length_t_int = 0;
+						// Write result to winmm wrapper:
+						HANDLE Mailslot = CreateFile(ServerName, GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+						WriteFile(Mailslot, strcat(length_s, " length_t"), 64, &BytesWritten, NULL);
+						CloseHandle(Mailslot);
+						sprintf(track_cmd,"");
+						sprintf(length_s,"");
+					}
+					if(pos_int){
+						mciSendStringA("status cdaudio position wait", pos_s, 64, NULL);
+						pos_int = 0;
+						// Write result to winmm wrapper:
+						HANDLE Mailslot = CreateFile(ServerName, GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+						WriteFile(Mailslot, strcat(pos_s, " pos"), 64, &BytesWritten, NULL);
+						CloseHandle(Mailslot);
+						sprintf(pos_s,"");
+					}
+					if(pos_t_int){
+						mciSendStringA(track_cmd, pos_s, 64, NULL);
+						pos_t_int = 0;
+						// Write result to winmm wrapper:
+						HANDLE Mailslot = CreateFile(ServerName, GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+						WriteFile(Mailslot, strcat(pos_s, " pos_t"), 64, &BytesWritten, NULL);
+						CloseHandle(Mailslot);
+						sprintf(track_cmd,"");
+						sprintf(pos_s,"");
+					}
+					if(cur_track){
+						mciSendStringA("status cdaudio current track", cur_t_s, 64, NULL);
+						cur_track = 0;
+						// Write result to winmm wrapper:
+						HANDLE Mailslot = CreateFile(ServerName, GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+						WriteFile(Mailslot, strcat(cur_t_s, " cur_t"), 64, &BytesWritten, NULL);
+						CloseHandle(Mailslot);
+						sprintf(cur_t_s,"");
+					}
+					if(mci_tracks){
+						mciSendStringA("status cdaudio number of tracks wait", tracks_s, 64, NULL);
+						sscanf(tracks_s, "%d", &tracks);
+						mci_tracks = 0;
+						// Write no. of tracks for winmm wrapper:
+						HANDLE Mailslot = CreateFile(ServerName, GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+						WriteFile(Mailslot, strcat(tracks_s, " tracks"), 64, &BytesWritten, NULL);
+						CloseHandle(Mailslot);
 					}
 					Sleep(10);
 					counter ++;
@@ -655,10 +758,6 @@ int player_main( void )
 				if (mci_pause){
 					mciSendStringA("pause cdaudio wait", NULL, 0, NULL);
 					dprintf("  Playback paused\n");
-					// Write MODE stopped for winmm wrapper: 
-					HANDLE Mailslot = CreateFile(ServerName, GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-					WriteFile(Mailslot, "1 mode", 64, &BytesWritten, NULL);
-					CloseHandle(Mailslot);
 					break;
 				}
 			}
@@ -667,10 +766,17 @@ int player_main( void )
 			if (!mci_pause && !mci_play_pump)
 			{
 				mciSendStringA("stop cdaudio wait", NULL, 0, NULL);
-				// Write MODE stopped for winmm wrapper: 
+				// Write MODE stopped for winmm wrapper:
 				HANDLE Mailslot = CreateFile(ServerName, GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
 				WriteFile(Mailslot, "1 mode", 64, &BytesWritten, NULL);
 				CloseHandle(Mailslot);
+			}
+			else if(mci_pause)
+			{
+				// Write MODE stopped for winmm wrapper:
+				HANDLE Mailslot = CreateFile(ServerName, GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+				WriteFile(Mailslot, "1 mode", 64, &BytesWritten, NULL);
+				CloseHandle(Mailslot);	
 			}
 
 			// Get last mode: 
@@ -1108,7 +1214,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 		return 0;
 	}
 
-	// Check for Win version. If less than Vista quit. 
+	// Check for Win version. If less than Vista quit.
+	/*
 	DWORD dwVersion = 0; 
 	dwVersion = GetVersion();
 	if (dwVersion < 590000000)
@@ -1117,6 +1224,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 			MB_ICONEXCLAMATION | MB_OK);
 		return 0;
 	}
+	*/
 	
 
 	hwnd = CreateWindowEx(
