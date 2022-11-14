@@ -1,5 +1,7 @@
 # cdaudio-winmm player (Beta v.1.5)
 
+![screenshot](screenshot-v05.png)
+
 - Attempt to bring in improvements from ogg-winmm. Should not support MSF and Milliseconds time formats as well as other previously missing functions.
 - Removed the previous capability of using .wav or .mp3 files. This is now purely for playback directly from the disc.
 - The nature of the server to client system using Mailslots causes issues that have been difficult to resolve. Hence this release should be considered experimental.
