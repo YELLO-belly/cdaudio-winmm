@@ -1,4 +1,4 @@
-# cdaudio-winmm player (Beta v.1.5)
+# cdaudio-winmm player (Experimental v.1.5)
 
 ![screenshot](screenshot-v05.png)
 
