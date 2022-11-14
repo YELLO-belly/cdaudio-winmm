@@ -2,12 +2,12 @@
 
 ![screenshot](screenshot-v05.png)
 
-- Attempt to bring in improvements from ogg-winmm. Should not support MSF and Milliseconds time formats as well as other previously missing functions.
+- Attempt to bring in improvements from ogg-winmm. Should now support MSF and Milliseconds time formats as well as other previously missing functions.
 - Removed the previous capability of using .wav or .mp3 files. This is now purely for playback directly from the disc.
 - The nature of the server to client system using Mailslots causes issues that have been difficult to resolve. Hence this release should be considered experimental.
 
 # cdaudio-winmm player (beta v.0.4.0.3) -UPDATED-:  
-Marked as v.1.0 in the releases.
+## Marked as v.1.0 in the releases.
 
 NEW EDITS:
 - MCI device ID now defaults to 0x1 (int 1). Old 0xBEEF (int 48879) can be restored from winmm.ini. (edited cdaudio-winmm.c, winmm.ini)
