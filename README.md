@@ -1,3 +1,5 @@
+## On Windows 10 (and 11?) whenever certain ACT compatibility fixes are enabled for the game the wrapper may get ignored. One possible way to fix this is to rename the game executable.
+
 # cdaudio-winmm player (Experimental v.1.5)
 
 ![screenshot](screenshot-v05.png)
