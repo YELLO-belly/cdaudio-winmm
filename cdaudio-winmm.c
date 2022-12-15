@@ -48,7 +48,8 @@ int tf_s = 0;
 MCIERROR WINAPI relay_mciSendCommandA(MCIDEVICEID a0, UINT a1, DWORD a2, DWORD a3);
 MCIERROR WINAPI relay_mciSendStringA(LPCSTR a0, LPSTR a1, UINT a2, HWND a3);
 
-int MAGIC_DEVICEID = 1;
+int MAGIC_DEVICEID = 48879;
+MCI_OPEN_PARMS mciOpenParms;
 
 #ifdef _DEBUG
 	#define dprintf(...) if (fh) { fprintf(fh, __VA_ARGS__); fflush(NULL); }
@@ -157,8 +158,21 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 
 		// Start Mailslot reader thread: 
 		reader = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)reader_main, NULL, 0, NULL);
-		int bMCIDevID = GetPrivateProfileInt("winmm", "MCIDevID", 0, ".\\winmm.ini");
-		if(bMCIDevID) MAGIC_DEVICEID = 48879; // 48879 = 0xBEEF 
+		
+        int bMCIDevID = GetPrivateProfileInt("winmm", "MCIDevID", 0, ".\\winmm.ini");
+		if(bMCIDevID){
+			mciOpenParms.lpstrDeviceType = "waveaudio";
+			int MCIERRret = 0;
+			if (MCIERRret = mciSendCommand(0, MCI_OPEN, MCI_OPEN_TYPE, (DWORD)(LPVOID) &mciOpenParms)){
+				// Failed to open wave device.
+				MAGIC_DEVICEID = 48879;
+				dprintf("Failed to open wave device! Using 0xBEEF as cdaudio id.\r\n");
+			}
+			else{
+				MAGIC_DEVICEID = mciOpenParms.wDeviceID;
+				dprintf("Wave device opened succesfully using cdaudio ID %d for emulation.\r\n",MAGIC_DEVICEID);
+			}
+		}
 	}
 
 	if (fdwReason == DLL_PROCESS_DETACH)
