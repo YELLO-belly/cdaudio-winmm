@@ -221,7 +221,7 @@ MCIERROR WINAPI fake_mciSendCommandA(MCIDEVICEID IDDevice, UINT uMsg, DWORD_PTR 
 {
 	if (!once) {
 		once = 1;
-		Sleep(400); // Sleep a bit to ensure cdaudioplr.exe is initialized.
+		Sleep(1000); // Sleep a bit to ensure cdaudioplr.exe is initialized.
 	}
 	
 	char cmdbuf[1024];
@@ -1440,7 +1440,7 @@ MMRESULT WINAPI fake_auxSetVolume(UINT uDeviceID, DWORD dwVolume)
 {
 	if (!once) {
 		once = 1;
-		Sleep(400); // Sleep a bit to ensure cdaudioplr.exe is initialized.
+		Sleep(1000); // Sleep a bit to ensure cdaudioplr.exe is initialized.
 	}
 	
 	static DWORD oldVolume = -1;
