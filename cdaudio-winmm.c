@@ -67,6 +67,20 @@ int once = 0;
 
 CRITICAL_SECTION cs;
 HANDLE reader = NULL;
+HANDLE notifier = NULL;
+
+int sendnotify = 0;
+
+int send_notify_msg_main( void )
+{
+	while(1){
+		if(sendnotify){
+			SendMessageA((HWND)0xffff, MM_MCINOTIFY, MCI_NOTIFY_SUCCESSFUL, MAGIC_DEVICEID);
+			sendnotify = 0;
+		}
+		Sleep(10);
+	}
+}
 
 // Mailslot reader thread: 
 int reader_main( void )
@@ -101,7 +115,8 @@ int reader_main( void )
 
 				// Handle notify message: 
 				if(strstr(buffer,"notify_s")){
-					SendMessageA((HWND)0xffff, MM_MCINOTIFY, MCI_NOTIFY_SUCCESSFUL, MAGIC_DEVICEID);
+					//endMessageA((HWND)0xffff, MM_MCINOTIFY, MCI_NOTIFY_SUCCESSFUL, MAGIC_DEVICEID);
+					sendnotify = 1;
 					notfy_flag = 0;
 				}
 
@@ -158,6 +173,7 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 
 		// Start Mailslot reader thread: 
 		reader = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)reader_main, NULL, 0, NULL);
+		notifier = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)send_notify_msg_main, NULL, 0, NULL);
 		
         int bMCIDevID = GetPrivateProfileInt("winmm", "MCIDevID", 0, ".\\winmm.ini");
 		if(bMCIDevID){
