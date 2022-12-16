@@ -5,6 +5,16 @@ See: https://github.com/YELLO-belly/ogg-winmm/tree/master/PS-Script
 or: https://github.com/YELLO-belly/ogg-winmm/raw/master/PS-Script/force-winmm-loading.ps1  
 <sub>(right click on link and choose save link as...)</sub>
 
+# cdaudio-winmm player v.1.5 final
+- MCIDevID option now uses the real MCI to open waveaudio device and to lock that id for the emulation. Solves issues with games that are not happy with the fake 48879 id.
+- SendMessageA for for the notify message is now in its own thread. It was causing a latency/ lock up when send from inside the mailslot reader thread.
+- Longer initial sleep in the wrapper to wait for cdaudioplr.exe to initialize.  
+
+There is now also a batch file that can be used to make sure that the cdaudioplr.exe is launched before the game:
+https://raw.githubusercontent.com/YELLO-belly/cdaudio-winmm/master/batch/start_game.cmd
+<sub>(right click on link and choose save link as...)</sub>
+
+
 # cdaudio-winmm player (Experimental v.1.5)
 
 ![screenshot](screenshot-v05.png)
