@@ -433,6 +433,9 @@ int player_main( void )
 	mciSendStringA("close cdaudio wait", NULL, 0, NULL); // Important! 
 	mciSendStringA("open cdaudio wait", NULL, 0, NULL);
 
+	//Instead of opening a handle then writing to the mailslot and closing the handle again one could simply open the handle once in a shared write mode as such:
+	//HANDLE Mailslot = CreateFile(ServerName, GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL | FILE_FLAG_OVERLAPPED, NULL);
+	
 	// Waiting loop:
 	while(1)
 	{
