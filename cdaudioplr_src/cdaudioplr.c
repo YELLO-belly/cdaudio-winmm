@@ -34,6 +34,8 @@
 	#define dprintf(...)
 #endif
 
+//#define IDT_TIMER1 1
+
 // Win32 GUI stuff:
 #define IDC_MAIN_EDIT	101
 #define ID_FILE_EXIT 9001
@@ -1143,6 +1145,14 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 				break;
 			}
 		break;
+		/*
+		case WM_TIMER: // Handle timer message.
+			if (msg==WM_TIMER && wParam==IDT_TIMER1)
+			{
+				return 0;
+			}
+		break;
+		*/
 		case WM_CLOSE:
 			DestroyWindow(hwnd);
 		break;
@@ -1266,6 +1276,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 
 	// Set timer
 	// SetTimer(hwnd, 1, 10, NULL);
+	// Or set a named timer
+	// SetTimer(hwnd, IDT_TIMER1, 10, NULL); // Use a named timer so we can handle its message.
 	
 	// Start threads: 
 	reader = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)reader_main, NULL, 0, NULL);
