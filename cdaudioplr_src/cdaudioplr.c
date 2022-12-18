@@ -1270,6 +1270,12 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 	// Start threads: 
 	reader = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)reader_main, NULL, 0, NULL);
 	player = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)player_main, NULL, 0, NULL);
+	
+	// THREAD_PRIORITY_BELOW_NORMAL = -1
+	// THREAD_PRIORITY_NORMAL = 0
+	// THREAD_PRIORITY_ABOVE_NORMAL = 1
+	// THREAD_PRIORITY_HIGHEST = 2
+	// SetThreadPriority(player,2);
 
 	// Message Loop: 
 	while(GetMessage(&Msg, NULL, 0, 0) > 0 && !quit)
