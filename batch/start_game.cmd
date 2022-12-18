@@ -17,3 +17,4 @@ cd..
 
 :: Edit this to match the game executable name.
 START game.exe
+:: Or to run in single core affinity use START /AFFINITY 2 game.exe
