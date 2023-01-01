@@ -1,18 +1,34 @@
-## On Windows 10 (and 11?) whenever certain ACT compatibility fixes are enabled for the game the wrapper may get ignored. One possible way to fix this is to rename the game executable.  
+## What is it?
 
-## There is now also a PowerShell script available in the sources to help alleviate issues where the wrapper is ignored by Windows.  
+This is a winmm wrapper to a separate cdaudio player that handles the track repeat that is broken from Windows Vista onwards (among fixing other things MS broke in mcicda implementation). Unlike the ogg-winmm wrapper which plays ripped .ogg files cdaudio-winmm instead tries to directly play the cdtracks on a physical disc (or cdimage) using a separate player program. Communication between winmm.dll and the player is done using mailslots.  
+
+The trick is to handle the broken MCI mode change by monitoring POSTION and MODE. If MODE = "playing" and POSITION has not changed then we can determine that the track has finished playing and can update the MODE and send the MM_NOTIFY_SUCCESSFUL message (if requested). The cdaudio player code might also be useful to anyone wanting to write an MCI cdaudio player on newer Windows systems.
+
+# Usage:
+
+- Place winmm.dll wrapper into the game folder.
+- Place cdaudioplr.exe in 'mcicda' -sub-folder.
+- Run the game normally.
+
+NOTE:
+- You can start cdaudioplr.exe manually before running the game. Sometimes this may be necessary since the game may query the cd device before the wrapper has time to initialize the player. There is now also a batch file that can be used to make sure that the cdaudioplr.exe is launched before the game:  
+https://raw.githubusercontent.com/YELLO-belly/cdaudio-winmm/master/batch/start_game.cmd  
+<sub>(right click on link and choose save link as...)</sub>  
+- Do not place cdaudioplr.exe and winmm.dll in the same folder!
+- ~~v.0.3 now supports mp3 and wav playback if a music folder is found containing the tracks in the correct format. (track02.mp3/wav ...)~~ No longer available in 1.5.  
+
+Extra note:
+- Apparently on some machines the local winmm.dll wrapper is ignored and the real system dll is used instead. This may be because some other program has already loaded the winmm.dll library or some system setting forces the use of the real dll. The wrapper can be forced to load by renaming it to for example to winm2.dll and hex editing the program executable to point to this renamed winmm.dll instead.
+- There is now also a PowerShell script available in the sources to help alleviate issues where the wrapper is ignored by Windows.  
 See: https://github.com/YELLO-belly/ogg-winmm/tree/master/PS-Script  
 or: https://github.com/YELLO-belly/ogg-winmm/raw/master/PS-Script/force-winmm-loading.ps1  
 <sub>(right click on link and choose save link as...)</sub>
+
 
 # cdaudio-winmm player v.1.5 final
 - MCIDevID option now uses the real MCI to open waveaudio device and to lock that id for the emulation. Solves issues with games that are not happy with the fake 48879 id.
 - SendMessageA for for the notify message is now in its own thread. It was causing a latency/ lock up when send from inside the mailslot reader thread.
 - Longer initial sleep in the wrapper to wait for cdaudioplr.exe to initialize.  
-
-There is now also a batch file that can be used to make sure that the cdaudioplr.exe is launched before the game:
-https://raw.githubusercontent.com/YELLO-belly/cdaudio-winmm/master/batch/start_game.cmd
-<sub>(right click on link and choose save link as...)</sub>
 
 
 # cdaudio-winmm player (Experimental v.1.5)
@@ -32,23 +48,6 @@ NEW EDITS:
 - Subsequently MCI_GETDEVCAPS needs to be handled now. (edited cdaudio-winmm.c)
 - Needed to Add some extra complexity in the player loop where the fact that the mailslot can send a new notify msg request before the player loop is finished caused music not to repeat. (edited cdaudioplr_src\cdaudioplr.c -> new skip_notify_msg variable)
 
-Extra note:
-- Apparently on some machines the local winmm.dll wrapper is ignored and the real system dll is used instead. This may be because some other program has already loaded the winmm.dll library or some system setting forces the use of the real dll. The wrapper can be forced to load by renaming it to for example to winm2.dll and hex editing the program executable to point to this renamed winmm.dll instead.
-
-.
-.
-.
-
-This is a winmm wrapper to a separate cdaudio player that handles the track repeat that is broken from Windows Vista onwards. Unlike the ogg-winmm wrapper which plays ripped .ogg files cdaudio-winmm instead tries to play the cdtracks on a physical disc (or cdimage) using a separate player program. Communication between winmm.dll and the player is done using [mailslots.](https://docs.microsoft.com/en-us/windows/win32/ipc/mailslots)
-
-The trick is to handle the broken MCI mode change by monitoring POSTION and MODE. If MODE = "playing" and POSITION has not changed then we can determine that the track has finished playing and can update the MODE and send the MM_NOTIFY_SUCCESSFUL message (if requested). The cdaudio player code might also be useful to anyone wanting to write an MCI cdaudio player on newer Windows systems.
-
-![screenshot](screenshot-v04.png)
-
-Limitations:
-- Plays only single tracks which is fine most of the time but causes problems if the game issues a single "from -> to" command to play multiple tracks.
-- All tracks are reported as 1 minutes long. This may cause issues if a game relies on an accurate response for the track length query in order to determine when the track has finished playing.
-- ~~The wrapper can not handle a situation where a game uses the MCI API to also play video files. In this case you will likely see a black screen or an error message.~~
 
 0.4.0.3 changes:
 - Better no. of tracks logic. Should now work more reliably.
@@ -81,13 +80,3 @@ Note: This may be the last maintenance release. Implementing support for games t
 Build with make.cmd if path variables are set (C:\MinGW\bin).
 Or build from msys with command: mingw32-make
 
-# Usage:
-
-- Place winmm.dll wrapper into the game folder.
-- Place cdaudioplr.exe in 'mcicda' -sub-folder.
-- Run the game normally.
-
-NOTE:
-- You can start cdaudioplr.exe manually before running the game. Sometimes this may be necessary since the game may query the cd device before the wrapper has time to initialize the player.
-- Do not place cdaudioplr.exe and winmm.dll in the same folder!
-- v.0.3 now supports mp3 and wav playback if a music folder is found containing the tracks in the correct format. (track02.mp3/wav ...)
