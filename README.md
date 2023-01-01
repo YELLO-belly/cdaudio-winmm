@@ -2,7 +2,7 @@
 
 ![screenshot](screenshot-v05.png)
 
-This is a winmm wrapper to a separate cdaudio player that handles the track repeat that is broken from Windows Vista onwards (among fixing other things MS broke in mcicda implementation). Unlike the ogg-winmm wrapper which plays ripped .ogg files cdaudio-winmm instead tries to directly play the cdtracks on a physical disc (or cdimage) using a separate player program. Communication between winmm.dll and the player is done using mailslots.  
+This is a winmm wrapper to a separate cdaudio player that handles the track repeat that is broken from Windows Vista onwards (among fixing other things MS broke in mcicda implementation). Unlike the ogg-winmm wrapper which plays ripped .ogg files cdaudio-winmm instead tries to directly play the cdtracks on a physical disc (or cdimage) using a separate player program. Communication between winmm.dll and the player is done using [mailslots.](https://learn.microsoft.com/en-us/windows/win32/ipc/mailslots) 
 
 The trick is to handle the broken MCI mode change by monitoring POSTION and MODE. If MODE = "playing" and POSITION has not changed then we can determine that the track has finished playing and can update the MODE and send the MM_NOTIFY_SUCCESSFUL message (if requested). The cdaudio player code might also be useful to anyone wanting to write an MCI cdaudio player on newer Windows systems.
 
@@ -27,27 +27,29 @@ or: https://github.com/YELLO-belly/ogg-winmm/raw/master/PS-Script/force-winmm-lo
 <sub>(right click on link and choose save link as...)</sub>
 
 
-# cdaudio-winmm player v.1.5 final
+# cdaudio-winmm player v.1.5 final:
 - MCIDevID option now uses the real MCI to open waveaudio device and to lock that id for the emulation. Solves issues with games that are not happy with the fake 48879 id.
 - SendMessageA for for the notify message is now in its own thread. It was causing a latency/ lock up when send from inside the mailslot reader thread.
 - Longer initial sleep in the wrapper to wait for cdaudioplr.exe to initialize.  
 
 
-# cdaudio-winmm player (Experimental v.1.5)
+# cdaudio-winmm player (Experimental v.1.5):
 
 - Attempt to bring in improvements from ogg-winmm. Should now support MSF and Milliseconds time formats as well as other previously missing functions.
 - Removed the previous capability of using .wav or .mp3 files. This is now purely for playback directly from the disc.
 - The nature of the server to client system using Mailslots causes issues that have been difficult to resolve. Hence this release should be considered experimental.
 
-# cdaudio-winmm player (beta v.0.4.0.3) -UPDATED-:  
-## Marked as v.1.0 in the releases.
 
-NEW EDITS:
+# cdaudio-winmm player (beta v.0.4.0.3) -UPDATED-:  
+(Marked as v.1.0 in the releases.)  
+
 - MCI device ID now defaults to 0x1 (int 1). Old 0xBEEF (int 48879) can be restored from winmm.ini. (edited cdaudio-winmm.c, winmm.ini)
 - Non cdaudio related MCI commands are now relayed to the real winmm for video playback, etc. (taken from AyuanX ogg-winmm fork) (edited cdaudio-winmm.c, cdaudio-winmm.def, stubs.c)
 - Subsequently MCI_GETDEVCAPS needs to be handled now. (edited cdaudio-winmm.c)
 - Needed to Add some extra complexity in the player loop where the fact that the mailslot can send a new notify msg request before the player loop is finished caused music not to repeat. (edited cdaudioplr_src\cdaudioplr.c -> new skip_notify_msg variable)
 
+
+# Original changelog:
 
 0.4.0.3 changes:
 - Better no. of tracks logic. Should now work more reliably.
