@@ -1,5 +1,7 @@
 ## What is it?
 
+![screenshot](screenshot-v05.png)
+
 This is a winmm wrapper to a separate cdaudio player that handles the track repeat that is broken from Windows Vista onwards (among fixing other things MS broke in mcicda implementation). Unlike the ogg-winmm wrapper which plays ripped .ogg files cdaudio-winmm instead tries to directly play the cdtracks on a physical disc (or cdimage) using a separate player program. Communication between winmm.dll and the player is done using mailslots.  
 
 The trick is to handle the broken MCI mode change by monitoring POSTION and MODE. If MODE = "playing" and POSITION has not changed then we can determine that the track has finished playing and can update the MODE and send the MM_NOTIFY_SUCCESSFUL message (if requested). The cdaudio player code might also be useful to anyone wanting to write an MCI cdaudio player on newer Windows systems.
@@ -32,8 +34,6 @@ or: https://github.com/YELLO-belly/ogg-winmm/raw/master/PS-Script/force-winmm-lo
 
 
 # cdaudio-winmm player (Experimental v.1.5)
-
-![screenshot](screenshot-v05.png)
 
 - Attempt to bring in improvements from ogg-winmm. Should now support MSF and Milliseconds time formats as well as other previously missing functions.
 - Removed the previous capability of using .wav or .mp3 files. This is now purely for playback directly from the disc.
