@@ -384,9 +384,9 @@ MCIERROR WINAPI fake_mciSendCommandA(MCIDEVICEID IDDevice, UINT uMsg, DWORD_PTR 
 			WriteFile(Mailslot, "mci_stop", 64, &BytesWritten, NULL);
 			CloseHandle(Mailslot);
 
-			// Wait for mode change. Max 1000msec sleep.
+			// Wait for mode change. Max 3000msec sleep.
 			int counter = 0;
-			while(mode == 2 && counter < 100)
+			while(mode == 2 && counter < 300)
 			{
 				Sleep(10); // Wait for mode change. 
 				counter ++;
@@ -588,9 +588,9 @@ MCIERROR WINAPI fake_mciSendCommandA(MCIDEVICEID IDDevice, UINT uMsg, DWORD_PTR 
 			WriteFile(Mailslot, "mci_play", 64, &BytesWritten, NULL);
 			CloseHandle(Mailslot);
 
-			// Wait for mode change. Max 1000msec sleep.
+			// Wait for mode change. Max 3000msec sleep.
 			int counter = 0;
-			while(mode == 1 && counter < 100)
+			while(mode == 1 && counter < 300)
 			{
 				Sleep(10); // Wait for mode change. 
 				counter ++;
@@ -611,9 +611,9 @@ MCIERROR WINAPI fake_mciSendCommandA(MCIDEVICEID IDDevice, UINT uMsg, DWORD_PTR 
 			WriteFile(Mailslot, "mci_stop", 64, &BytesWritten, NULL);
 			CloseHandle(Mailslot);
 			
-			// Wait for mode change. Max 1000msec sleep.
+			// Wait for mode change. Max 3000msec sleep.
 			int counter = 0;
-			while(mode == 2 && counter < 100)
+			while(mode == 2 && counter < 300)
 			{
 				Sleep(10); // Wait for mode change. 
 				counter ++;
@@ -1345,9 +1345,9 @@ MCIERROR WINAPI fake_mciSendStringA(LPCTSTR cmd, LPTSTR ret, UINT cchReturn, HAN
 		WriteFile(Mailslot, mci_seek_string, 64, &BytesWritten, NULL);
 		CloseHandle(Mailslot);
 
-		// Wait for mode change. Max 1000msec sleep.
+		// Wait for mode change. Max 3000msec sleep.
 		int counter = 0;
-		while(mode == 2 && counter < 100)
+		while(mode == 2 && counter < 300)
 		{
 			Sleep(10); // Wait for mode change. 
 			counter ++;
@@ -1393,9 +1393,9 @@ MCIERROR WINAPI fake_mciSendStringA(LPCTSTR cmd, LPTSTR ret, UINT cchReturn, HAN
 		WriteFile(Mailslot, mci_play_string, 64, &BytesWritten, NULL);
 		CloseHandle(Mailslot);
 
-		// Wait for mode change. Max 1000msec sleep.
+		// Wait for mode change. Max 3000msec sleep.
 		int counter = 0;
-		while(mode == 1 && counter < 100)
+		while(mode == 1 && counter < 300)
 		{
 			Sleep(10); // Wait for mode change. 
 			counter ++;
