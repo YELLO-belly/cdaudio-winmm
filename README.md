@@ -27,7 +27,7 @@ or: https://github.com/YELLO-belly/ogg-winmm/raw/master/PS-Script/force-winmm-lo
 <sub>(right click on link and choose save link as...)</sub>
 
 
-# cdaudio-winmm player v.1.5 final:
+# cdaudio-winmm player v.1.5 final rev:
 - A very small but important revision to the wait time for mode change. Turns out 1 second is not enough in some cases. It is now increased to 3 seconds maximum wait time for the mode change. In theory though depending on the quality of the CD-ROM disc and the CD/DVD drive it could take more than 3 seconds. Another option could have been to set an infinite wait but if something goes wrong this could result in the game deadlocking.
 - MCIDevID option now uses the real MCI to open waveaudio device and to lock that id for the emulation. Solves issues with games that are not happy with the fake 48879 id.
 - SendMessageA for for the notify message is now in its own thread. It was causing a latency/ lock up when send from inside the mailslot reader thread.
