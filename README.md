@@ -26,6 +26,8 @@ See: https://github.com/YELLO-belly/ogg-winmm/tree/master/PS-Script
 or: https://github.com/YELLO-belly/ogg-winmm/raw/master/PS-Script/force-winmm-loading.ps1  
 <sub>(right click on link and choose save link as...)</sub>
 
+# cdaudio-winmm player v.1.5.1:
+- Added a manual startup delay adjustment in winmm.ini. This can be changed from 1-9 seconds. The default is 0 which will set a 1.5 second delay. The startup delay determines how long the cdaudioplr.exe has time to initialize itself.
 
 # cdaudio-winmm player v.1.5 final rev:
 - A very small but important revision to the wait time for mode change. Turns out 1 second is not enough in some cases. It is now increased to 3 seconds maximum wait time for the mode change. In theory though depending on the quality of the CD-ROM disc and the CD/DVD drive it could take more than 3 seconds. Another option could have been to set an infinite wait but if something goes wrong this could result in the game deadlocking.
