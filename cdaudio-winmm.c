@@ -64,6 +64,7 @@ int time_format = MCI_FORMAT_MSF;
 int numTracks = 0; // default: MAX 99 tracks 
 int mciStatusRet = 0;
 int once = 0;
+int StartDelayMs = 1500;
 
 CRITICAL_SECTION cs;
 HANDLE reader = NULL;
@@ -174,8 +175,17 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 		// Start Mailslot reader thread: 
 		reader = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)reader_main, NULL, 0, NULL);
 		notifier = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)send_notify_msg_main, NULL, 0, NULL);
-		
-        int bMCIDevID = GetPrivateProfileInt("winmm", "MCIDevID", 0, ".\\winmm.ini");
+
+		// Read winmm.ini for StartDelay
+		int StartDelay = GetPrivateProfileInt("winmm", "StartDelay", 0, ".\\winmm.ini");
+		if ((StartDelay < 1) || (StartDelay > 9)){
+			StartDelayMs = 1500;
+		}
+		else{
+			StartDelayMs = StartDelay * 1000;
+		}
+
+		int bMCIDevID = GetPrivateProfileInt("winmm", "MCIDevID", 0, ".\\winmm.ini");
 		if(bMCIDevID){
 			mciOpenParms.lpstrDeviceType = "waveaudio";
 			int MCIERRret = 0;
@@ -221,7 +231,7 @@ MCIERROR WINAPI fake_mciSendCommandA(MCIDEVICEID IDDevice, UINT uMsg, DWORD_PTR 
 {
 	if (!once) {
 		once = 1;
-		Sleep(1000); // Sleep a bit to ensure cdaudioplr.exe is initialized.
+		Sleep(StartDelayMs); // Sleep a bit to ensure cdaudioplr.exe is initialized.
 	}
 	
 	char cmdbuf[1024];
@@ -991,6 +1001,11 @@ MCIERROR WINAPI fake_mciSendCommandA(MCIDEVICEID IDDevice, UINT uMsg, DWORD_PTR 
 
 MCIERROR WINAPI fake_mciSendStringA(LPCTSTR cmd, LPTSTR ret, UINT cchReturn, HANDLE hwndCallback)
 {
+	if (!once) {
+		once = 1;
+		Sleep(StartDelayMs); // Sleep a bit to ensure cdaudioplr.exe is initialized.
+	}
+
 	char cmdbuf[1024];
 	char cmp_str[1024];
 
@@ -1440,7 +1455,7 @@ MMRESULT WINAPI fake_auxSetVolume(UINT uDeviceID, DWORD dwVolume)
 {
 	if (!once) {
 		once = 1;
-		Sleep(1000); // Sleep a bit to ensure cdaudioplr.exe is initialized.
+		Sleep(StartDelayMs); // Sleep a bit to ensure cdaudioplr.exe is initialized.
 	}
 	
 	static DWORD oldVolume = -1;
