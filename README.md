@@ -26,6 +26,9 @@ See: https://github.com/YELLO-belly/ogg-winmm/tree/master/PS-Script
 or: https://github.com/YELLO-belly/ogg-winmm/raw/master/PS-Script/force-winmm-loading.ps1  
 <sub>(right click on link and choose save link as...)</sub>
 
+# cdaudio-winmm player v.1.5.2:
+- Fix mciSendCommand DeviceType case sensitive. To keep in line with the ogg-winmm fork changes. Some games can use DeviceType "CDAudio" in which case the old logic was failing since it looked only for the lower case "cdaudio" string.
+
 # cdaudio-winmm player v.1.5.1:
 - Added a manual startup delay adjustment in winmm.ini. This can be changed from 1-9 seconds (whole numbers only). The default is 0 which will set a 1.5 second delay as will invalid values. The startup delay determines how long the cdaudioplr.exe has time to initialize itself.
 
