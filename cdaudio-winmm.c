@@ -598,7 +598,7 @@ MCIERROR WINAPI fake_mciSendCommandA(MCIDEVICEID IDDevice, UINT uMsg, DWORD_PTR 
 					CloseHandle(Mailslot);
 					
 					dprintf("	 dwTo:	 \r\n");
-					dprintf("	   mapped milliseconds to ?\n");
+					dprintf("	   milliseconds %d\n", parms->dwTo);
 				}
 			}
 
