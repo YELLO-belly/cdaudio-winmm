@@ -681,7 +681,7 @@ int player_main( void )
 			// cdaudio play loop:
 			// (While positions differ track must be playing.)
 			while(strcmp(pos1,pos2)!=0 && strcmp(mode,"playing")==0 && mci_play)
-			{				
+			{
 				dprintf("actual play loop\n");
 				mciSendStringA("status cdaudio position wait", pos1, 64, NULL);
 				// dprintf("    POS: %s\r", pos1);
@@ -767,10 +767,26 @@ int player_main( void )
 				}
 			}
 
-			// MCI_STOP if track finished: 
+			// Handle finished playback: 
 			if (!mci_pause && !mci_play_pump)
 			{
-				mciSendStringA("stop cdaudio wait", NULL, 0, NULL);
+				// Close the device and open it again using stored info.
+				// Fixes issues with mcicda end of playback and last track bug:
+				char temp_time[64] = "";
+				char temp_pos[64] = "";
+				char temp_track_cmd[512] = "";
+
+				mciSendStringA("status cdaudio time format wait", temp_time, 64, NULL);
+				mciSendStringA("status cdaudio position wait", temp_pos, 64, NULL);
+				mciSendStringA("close cdaudio wait", NULL, 0, NULL);
+				mciSendStringA("open cdaudio wait", NULL, 0, NULL);
+				// Restore time format:
+				sprintf(temp_track_cmd, "set cdaudio time format %s", temp_time);
+				mciSendStringA(temp_track_cmd, NULL, 0, NULL);
+				// Restire last position:
+				sprintf(temp_track_cmd, "seek cdaudio to %s", temp_pos);
+				mciSendStringA(temp_track_cmd, NULL, 0, NULL);
+
 				// Write MODE stopped for winmm wrapper:
 				HANDLE Mailslot = CreateFile(ServerName, GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
 				WriteFile(Mailslot, "1 mode", 64, &BytesWritten, NULL);
