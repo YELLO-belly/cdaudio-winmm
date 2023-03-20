@@ -7,7 +7,7 @@
 :: To avoid this situation an alternative way is to manually start the
 :: cdaudioplr.exe before the game program. This batch file automates it.
 
-CD mcicda
+cd mcicda
 START cdaudioplr.exe
 
 :: A timeout in seconds can be specified to wait for program to be ready.
@@ -15,6 +15,9 @@ timeout 3
 
 cd..
 
-:: Edit this to match the game executable name.
-START game.exe
-:: Or to run in single core affinity use START /AFFINITY 2 game.exe
+:: Change game.exe to match the name of your game executable.
+START "" /WAIT "game.exe"
+:: Or to run in single core affinity use: START "" /WAIT /AFFINITY 2 "game.exe"
+
+:: Kill cdaudioplr.exe in case auto close fails.
+taskkill /im cdaudioplr.exe /t /f
