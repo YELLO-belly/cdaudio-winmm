@@ -367,7 +367,9 @@ int player_main( void )
 			"# Change the number to the desired volume level (0-100).\n\n"
 			"[options]\n"
 			"# Enable debug log\n"
-			"Log = 0", cdaudio_vol);
+			"Log = 0\n\n"
+			"# Set cdaudioplr to run on the last CPU core\n"
+			"LastCore = 0", cdaudio_vol);
 		fclose(fp);
 	}
 
