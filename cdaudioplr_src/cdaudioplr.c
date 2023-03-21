@@ -34,7 +34,7 @@
 	#define dprintf(...)
 #endif
 
-//#define IDT_TIMER1 1
+#define IDT_CDAPLR_TIMER1 1
 
 // Win32 GUI stuff:
 #define IDC_MAIN_EDIT	101
@@ -117,6 +117,7 @@ int tracks = 0;
 int notify_msg = 0;
 int quit = 0;
 int volume = 0xAFC8AFC8; // Default vol 70%
+int bLastCore = 0;
 
 FILE * fp;
 HANDLE reader = NULL;
@@ -1153,14 +1154,16 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 				break;
 			}
 		break;
-		/*
+
+		if(!bLastCore){
 		case WM_TIMER: // Handle timer message.
-			if (msg==WM_TIMER && wParam==IDT_TIMER1)
+			if (msg==WM_TIMER && wParam==IDT_CDAPLR_TIMER1)
 			{
 				return 0;
 			}
 		break;
-		*/
+		}
+
 		case WM_CLOSE:
 			DestroyWindow(hwnd);
 		break;
@@ -1194,10 +1197,13 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 	// SetPriorityClass(GetCurrentProcess(), HIGH_PRIORITY_CLASS); 
 
 	// Set affinity to last CPU core
-	SYSTEM_INFO sysinfo;
-	GetSystemInfo(&sysinfo);
-	int lastcore = sysinfo.dwNumberOfProcessors;
-	SetProcessAffinityMask(GetCurrentProcess(), lastcore);
+	bLastCore = GetPrivateProfileInt("options", "LastCore", 0, ".\\cdaudio_vol.ini");
+	if(bLastCore){
+		SYSTEM_INFO sysinfo;
+		GetSystemInfo(&sysinfo);
+		int lastcore = sysinfo.dwNumberOfProcessors;
+		SetProcessAffinityMask(GetCurrentProcess(), lastcore);
+	}
 
 	WNDCLASSEX wc;
 	HWND hwnd;
@@ -1285,7 +1291,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 	// Set timer
 	// SetTimer(hwnd, 1, 10, NULL);
 	// Or set a named timer
-	// SetTimer(hwnd, IDT_TIMER1, 10, NULL); // Use a named timer so we can handle its message.
+	if(!bLastCore){
+		SetTimer(hwnd, IDT_CDAPLR_TIMER1, 10, NULL); // Use a named timer so we can handle its message.
+	}
 	
 	// Start threads: 
 	reader = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)reader_main, NULL, 0, NULL);
