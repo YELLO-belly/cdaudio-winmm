@@ -761,14 +761,13 @@ int player_main( void )
 					break;
 				}
 				if (mci_pause){
-					mciSendStringA("pause cdaudio wait", NULL, 0, NULL);
 					dprintf("  Playback paused\n");
 					break;
 				}
 			}
 
 			// Handle finished playback: 
-			if (!mci_pause && !mci_play_pump)
+			if (!mci_play_pump)
 			{
 				// Close the device and open it again using stored info.
 				// Fixes issues with mcicda end of playback and last track bug:
@@ -783,7 +782,7 @@ int player_main( void )
 				// Restore time format:
 				sprintf(temp_track_cmd, "set cdaudio time format %s", temp_time);
 				mciSendStringA(temp_track_cmd, NULL, 0, NULL);
-				// Restire last position:
+				// Restore last position:
 				sprintf(temp_track_cmd, "seek cdaudio to %s", temp_pos);
 				mciSendStringA(temp_track_cmd, NULL, 0, NULL);
 
@@ -791,13 +790,6 @@ int player_main( void )
 				HANDLE Mailslot = CreateFile(ServerName, GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
 				WriteFile(Mailslot, "1 mode", 64, &BytesWritten, NULL);
 				CloseHandle(Mailslot);
-			}
-			else if(mci_pause)
-			{
-				// Write MODE stopped for winmm wrapper:
-				HANDLE Mailslot = CreateFile(ServerName, GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-				WriteFile(Mailslot, "1 mode", 64, &BytesWritten, NULL);
-				CloseHandle(Mailslot);	
 			}
 
 			// Get last mode: 
