@@ -26,7 +26,7 @@ See: https://github.com/YELLO-belly/ogg-winmm/tree/master/PS-Script
 or: https://github.com/YELLO-belly/ogg-winmm/raw/master/PS-Script/force-winmm-loading.ps1  
 <sub>(right click on link and choose save link as...)</sub>
 
-# cdaudio-winmm player v.1.6:
+# cdaudio-winmm player v.1.6 (Temporarily removed release...):
 - There is yet another interesting bug in the Microsoft mcicda driver. That is if the last track of the CD is played to the very end then all subsequent playback commands will cause the music to be very choppy with constant annoying pauses. This is not an issue if the program calls mci_close and mci_open to re-initialize the device after end of media is reached. However as this was not an issue on Windows versions prior to Vista many programs will simply call a new mci_play and trigger the bug. The workaround for this issue in v.1.6 is to re-initialize the mcicda device whenever a play command finishes.
 
 # cdaudio-winmm player v.1.5.2:
