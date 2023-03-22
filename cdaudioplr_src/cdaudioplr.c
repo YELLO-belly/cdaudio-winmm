@@ -525,7 +525,7 @@ int player_main( void )
 						
 			// Set time format:
 			if(mci_time==0 && mci_time_set){
-				mciSendStringA("set cdaudio time format msf  wait", NULL, 0, NULL);
+				mciSendStringA("set cdaudio time format msf wait", NULL, 0, NULL);
 				mci_time_set = 0;
 			}
 			if(mci_time==1 && mci_time_set){
@@ -597,9 +597,9 @@ int player_main( void )
 			skip_cmd = 0;
 
 			// Write mode playing for winmm wrapper:
-			HANDLE Mailslot = CreateFile(ServerName, GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+			/*HANDLE Mailslot = CreateFile(ServerName, GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
 			WriteFile(Mailslot, "2 mode", 64, &BytesWritten, NULL);
-			CloseHandle(Mailslot);
+			CloseHandle(Mailslot);*/
 
 			// Handle CD spin-up with a loop:
 			// (While mode is playing and position does not change.)
