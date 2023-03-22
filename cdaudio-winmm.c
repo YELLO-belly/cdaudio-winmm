@@ -609,12 +609,12 @@ MCIERROR WINAPI fake_mciSendCommandA(MCIDEVICEID IDDevice, UINT uMsg, DWORD_PTR 
 			CloseHandle(Mailslot);
 
 			// Wait for mode change. Max 3000msec sleep.
-			int counter = 0;
+			/*int counter = 0;
 			while(mode == 1 && counter < 300)
 			{
 				Sleep(10); // Wait for mode change. 
 				counter ++;
-			}
+			}*/
 
 			mode = 2;
 		}
