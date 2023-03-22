@@ -179,7 +179,8 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 		// Read winmm.ini for StartDelay
 		int StartDelay = GetPrivateProfileInt("winmm", "StartDelay", 0, ".\\winmm.ini");
 		if ((StartDelay < 1) || (StartDelay > 9)){
-			StartDelayMs = 1500;
+			StartDelayMs = 10;
+			once = 1;
 		}
 		else{
 			StartDelayMs = StartDelay * 1000;
