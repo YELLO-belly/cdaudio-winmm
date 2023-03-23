@@ -1273,7 +1273,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 
 	g_hMainWindow = hwnd;
 
-	ShowWindow(hwnd, SW_SHOWNOACTIVATE); // Start with inactive window. 
+	ShowWindow(hwnd, SW_SHOWNOACTIVATE); // Start with inactive window.
+	//ShowWindow(hwnd, SW_SHOWMINNOACTIVE); // Start with inactive and minimized window.
 	UpdateWindow(hwnd);
 
 	// Set working directory to module directory: 
