@@ -26,34 +26,37 @@ See: https://github.com/YELLO-belly/ogg-winmm/tree/master/PS-Script
 or: https://github.com/YELLO-belly/ogg-winmm/raw/master/PS-Script/force-winmm-loading.ps1  
 <sub>(right click on link and choose save link as...)</sub>
 
-# cdaudio-winmm player v.1.6.1:
+## cdaudio-winmm player v.1.6.2:
+- MCI_PLAY now returns mode=playing without any delay. Previous logic had a waiting counter to make sure that the cdaudio device was actually playing. However although the old logic seemed to work fine it was causing serious unreliability with the game Battlezone2 (at least when using a physical CD in a real DVD/CD-ROM drive).
+
+- winmm.ini StartDelay = 0 is now actually zero instead of 1500 ms. This is mainly useful if you are starting the cdaudioplr.exe manually or if a batch file is used to automate the starting process. In this case no startup delay should be necessary and possibly some programs might not like the forced startup delay from winmm.dll wrapper.
+
+## cdaudio-winmm player v.1.6.1:
 - 1.6.1 introduces a major performance fix. cdaudioplr.exe no longer relies on MCI_PAUSE but instead uses the same code that handles the last track bug to store the play position using MCI_STOP and MCI_SEEK. Pause command for cdaudio in the MCI API seems to be somewhat broken as it was causing a very noticeable lag / unresponsiveness of the device. Better to avoid using it.
 
 - cdaudiopler.exe uses a named timer to keep the player program responsive in case a game hogs all the resources. The previous trick of using the last cpu core is still available under cdaudio_vol.ini LastCore = 1 option.
 
 - There is yet another interesting bug in the Microsoft mcicda driver. That is if the last track of the CD is played to the very end then all subsequent playback commands will cause the music to be very choppy with constant annoying pauses. This is not an issue if the program calls mci_close and mci_open to re-initialize the device after end of media is reached. However as this was not an issue on Windows versions prior to Vista many programs will simply call a new mci_play and trigger the bug. The workaround for this issue in v.1.6 is to re-initialize the mcicda device whenever a play command finishes.
 
-# cdaudio-winmm player v.1.5.2:
+## cdaudio-winmm player v.1.5.2:
 - Fix mciSendCommand DeviceType case sensitive. To keep in line with the ogg-winmm fork changes. Some games can use DeviceType "CDAudio" in which case the old logic was failing since it looked only for the lower case "cdaudio" string.
 
-# cdaudio-winmm player v.1.5.1:
+## cdaudio-winmm player v.1.5.1:
 - Added a manual startup delay adjustment in winmm.ini. This can be changed from 1-9 seconds (whole numbers only). The default is 0 which will set a 1.5 second delay as will invalid values. The startup delay determines how long the cdaudioplr.exe has time to initialize itself.
 
-# cdaudio-winmm player v.1.5 final rev:
+## cdaudio-winmm player v.1.5 final rev:
 - A very small but important revision to the wait time for mode change. Turns out 1 second is not enough in some cases. It is now increased to 3 seconds maximum wait time for the mode change. In theory though depending on the quality of the CD-ROM disc and the CD/DVD drive it could take more than 3 seconds. Another option could have been to set an infinite wait but if something goes wrong this could result in the game deadlocking.
 - MCIDevID option now uses the real MCI to open waveaudio device and to lock that id for the emulation. Solves issues with games that are not happy with the fake 48879 id.
 - SendMessageA for for the notify message is now in its own thread. It was causing a latency/ lock up when send from inside the mailslot reader thread.
 - Longer initial sleep in the wrapper to wait for cdaudioplr.exe to initialize.  
 
-
-# cdaudio-winmm player (Experimental v.1.5):
+## cdaudio-winmm player (Experimental v.1.5):
 
 - Attempt to bring in improvements from ogg-winmm. Should now support MSF and Milliseconds time formats as well as other previously missing functions.
 - Removed the previous capability of using .wav or .mp3 files. This is now purely for playback directly from the disc.
 - The nature of the server to client system using Mailslots causes issues that have been difficult to resolve. Hence this release should be considered experimental.
 
-
-# cdaudio-winmm player (beta v.0.4.0.3) -UPDATED-:  
+## cdaudio-winmm player (beta v.0.4.0.3) -UPDATED-:  
 (Marked as v.1.0 in the releases.)  
 
 - MCI device ID now defaults to 0x1 (int 1). Old 0xBEEF (int 48879) can be restored from winmm.ini. (edited cdaudio-winmm.c, winmm.ini)
