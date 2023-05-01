@@ -1267,11 +1267,11 @@ MCIERROR WINAPI fake_mciSendStringA(LPCTSTR cmd, LPTSTR ret, UINT cchReturn, HAN
 		}
 		if (strstr(cmdbuf, "number of tracks"))
 		{
-			dprintf("  Returning number of tracks (%d)\r\n", numTracks);
 			static MCI_STATUS_PARMS parms;
 			parms.dwItem = MCI_STATUS_NUMBER_OF_TRACKS;
 			fake_mciSendCommandA(MAGIC_DEVICEID, MCI_STATUS, MCI_STATUS_ITEM, (DWORD_PTR)&parms);
 			sprintf(ret, "%d", numTracks);
+			dprintf("  Returning number of tracks (%d)\r\n", numTracks);
 			return 0;
 		}
 
