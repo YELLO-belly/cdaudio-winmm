@@ -368,6 +368,8 @@ int player_main( void )
 			"[options]\n"
 			"# Enable debug log\n"
 			"Log = 0\n\n"
+			"# Start cdaudioplr minimized in the taskbar\n"
+			"StartMin = 0\n\n"
 			"# Set cdaudioplr to run on the last CPU core\n"
 			"LastCore = 0", cdaudio_vol);
 		fclose(fp);
@@ -1273,8 +1275,15 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 
 	g_hMainWindow = hwnd;
 
-	ShowWindow(hwnd, SW_SHOWNOACTIVATE); // Start with inactive window.
-	//ShowWindow(hwnd, SW_SHOWMINNOACTIVE); // Start with inactive and minimized window.
+	// Start minimized
+	int bStartMin = GetPrivateProfileInt("options", "StartMin", 0, ".\\cdaudio_vol.ini");
+	if(bStartMin){
+		ShowWindow(hwnd, SW_SHOWMINNOACTIVE); // Start with inactive and minimized window.
+	}
+	else{
+		ShowWindow(hwnd, SW_SHOWNOACTIVATE); // Start with inactive window.
+	}
+	
 	UpdateWindow(hwnd);
 
 	// Set working directory to module directory: 
