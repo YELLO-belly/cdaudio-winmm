@@ -261,6 +261,32 @@ int reader_main( void )
 						}
 					}
 					
+					// Look for wait word and remove it from string
+					if(strstr(play_cmd,"wait")){
+						notify_msg = 1;
+						
+						char word[20] = "wait";
+						int i, j, len_str, len_word, temp, chk=0;
+						
+						len_str = strlen(play_cmd);
+						len_word = strlen(word);
+						for(i=0; i<len_str; i++){
+							temp = i;
+							for(j=0; j<len_word; j++){
+								if(play_cmd[i]==word[j])
+								i++;
+							}
+							chk = i-temp;
+							if(chk==len_word){
+								i = temp;
+								for(j=i; j<(len_str-len_word); j++)
+								play_cmd[j] = play_cmd[j+len_word];
+								len_str = len_str-len_word;
+								play_cmd[j]='\0';
+							}
+						}
+					}
+					
 					skip_cmd = 1;
 					if(mci_play){
 						mci_play_pump = 1;
