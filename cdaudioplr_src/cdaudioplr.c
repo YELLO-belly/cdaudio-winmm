@@ -1180,7 +1180,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 					"winmm.dll in the same folder."), TEXT("Instructions"), MB_OK);
 				break;
 				case ID_HELP_ABOUT:
-					MessageBox(hwnd, TEXT("cdaudio-winmm player\nversion 1.6 (c) 2022\n\nRestores track repeat\nand volume control\nin Vista and later."), TEXT("About"), MB_OK);
+					MessageBox(hwnd, TEXT("cdaudio-winmm player\nversion 1.6.3 (c) 2023\n\nRestores track repeat\nand volume control\nin Vista and later."), TEXT("About"), MB_OK);
 				break;
 			}
 		break;
