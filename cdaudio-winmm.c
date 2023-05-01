@@ -1454,6 +1454,17 @@ MCIERROR WINAPI fake_mciSendStringA(LPCTSTR cmd, LPTSTR ret, UINT cchReturn, HAN
 	sprintf(cmp_str, "play %s", alias_s);
 	if (strstr(cmdbuf, cmp_str)){
 
+		// Abort playback if "from 0" is called (TMSF Track playback only). Seen in Hunter Hunted.
+		if(time_format == MCI_FORMAT_TMSF){
+			int from = -1, to = -1;
+			if (sscanf(cmdbuf, "play %*s from %d to %d", &from, &to) == 2){
+				if(strstr(cmdbuf, "from 0"))return 0;
+			}
+			if (sscanf(cmdbuf, "play %*s from %d", &from) == 1){
+				if(strstr(cmdbuf, "from 0"))return 0;
+			}
+		}
+
 		const char* s; //const char is needed for the replacement to work.
 		s = cmdbuf;
 
