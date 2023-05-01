@@ -1287,26 +1287,11 @@ MCIERROR WINAPI fake_mciSendStringA(LPCTSTR cmd, LPTSTR ret, UINT cchReturn, HAN
 
 		if (strstr(cmdbuf, "current track"))
 		{
-			//static MCI_STATUS_PARMS parms;
-			//parms.dwItem = MCI_STATUS_CURRENT_TRACK;
-			//fake_mciSendCommandA(MAGIC_DEVICEID, MCI_STATUS, MCI_STATUS_ITEM, (DWORD_PTR)&parms);
-			//sprintf(ret, "%d", parms.dwReturn);
-			//dprintf("  Current track is (%d)\r\n", parms.dwReturn);
-			
-			HANDLE Mailslot8 = CreateFile(ServerName, GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-			WriteFile(Mailslot8, "current_track", 64, &BytesWritten, NULL);
-			CloseHandle(Mailslot8);
-					
-			// Wait for response:
-			int counter = 0;
-			while(mciStatusRet == 0 && counter < 30)
-			{
-				Sleep(10);
-				counter ++;
-			}
-			sprintf(ret, "%d", mciStatusRet);
-			dprintf("  Current track is (%d)\r\n", mciStatusRet);
-			mciStatusRet = 0;
+			static MCI_STATUS_PARMS parms;
+			parms.dwItem = MCI_STATUS_CURRENT_TRACK;
+			fake_mciSendCommandA(MAGIC_DEVICEID, MCI_STATUS, MCI_STATUS_ITEM, (DWORD_PTR)&parms);
+			sprintf(ret, "%d", parms.dwReturn);
+			dprintf("  Current track is (%d)\r\n", parms.dwReturn);
 			return 0;
 		}
 
