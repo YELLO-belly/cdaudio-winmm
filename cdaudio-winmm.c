@@ -1338,6 +1338,9 @@ MCIERROR WINAPI fake_mciSendStringA(LPCTSTR cmd, LPTSTR ret, UINT cchReturn, HAN
 	sprintf(cmp_str, "seek %s", alias_s);
 	if (strstr(cmdbuf, cmp_str)){
 
+		const char* s; //const char is needed for the replacement to work.
+		s = cmdbuf;
+		
 		// Replace any "alias" name with cdaudio:
 		char rewrite[] = "cdaudio";
 		char* mci_seek_string;
@@ -1345,22 +1348,22 @@ MCIERROR WINAPI fake_mciSendStringA(LPCTSTR cmd, LPTSTR ret, UINT cchReturn, HAN
 		int Newlength = strlen(rewrite);
 		int Oldlength = strlen(alias_s);
 
-		for (i = 0; cmd[i] != '\0'; i++) {
-			if (strstr(&cmd[i], alias_s) == &cmd[i]) {
+		for (i = 0; s[i] != '\0'; i++) {
+			if (strstr(&s[i], alias_s) == &s[i]) {
 				cnt++;
 				i += Oldlength - 1;
 			}
 		}
 		mci_seek_string = (char*)malloc(i + cnt * (Newlength - Oldlength) + 1);
 		i = 0;
-		while (*cmd) {
-			if (strstr(cmd, alias_s) == cmd) {
+		while (*s) {
+			if (strstr(s, alias_s) == s) {
 				strcpy(&mci_seek_string[i], rewrite);
 				i += Newlength;
-				cmd += Oldlength;
+				s += Oldlength;
 			}
 			else {
-				mci_seek_string[i++] = *cmd++;
+				mci_seek_string[i++] = *s++;
 			}
 		}
 		mci_seek_string[i] = '\0';
@@ -1386,6 +1389,9 @@ MCIERROR WINAPI fake_mciSendStringA(LPCTSTR cmd, LPTSTR ret, UINT cchReturn, HAN
 	sprintf(cmp_str, "play %s", alias_s);
 	if (strstr(cmdbuf, cmp_str)){
 
+		const char* s; //const char is needed for the replacement to work.
+		s = cmdbuf;
+
 		// Replace any "alias" name with cdaudio:
 		char rewrite[] = "cdaudio";
 		char* mci_play_string;
@@ -1393,22 +1399,22 @@ MCIERROR WINAPI fake_mciSendStringA(LPCTSTR cmd, LPTSTR ret, UINT cchReturn, HAN
 		int Newlength = strlen(rewrite);
 		int Oldlength = strlen(alias_s);
 
-		for (i = 0; cmd[i] != '\0'; i++) {
-			if (strstr(&cmd[i], alias_s) == &cmd[i]) {
+		for (i = 0; s[i] != '\0'; i++) {
+			if (strstr(&s[i], alias_s) == &s[i]) {
 				cnt++;
 				i += Oldlength - 1;
 			}
 		}
 		mci_play_string = (char*)malloc(i + cnt * (Newlength - Oldlength) + 1);
 		i = 0;
-		while (*cmd) {
-			if (strstr(cmd, alias_s) == cmd) {
+		while (*s) {
+			if (strstr(s, alias_s) == s) {
 				strcpy(&mci_play_string[i], rewrite);
 				i += Newlength;
-				cmd += Oldlength;
+				s += Oldlength;
 			}
 			else {
-				mci_play_string[i++] = *cmd++;
+				mci_play_string[i++] = *s++;
 			}
 		}
 		mci_play_string[i] = '\0';
@@ -1419,12 +1425,12 @@ MCIERROR WINAPI fake_mciSendStringA(LPCTSTR cmd, LPTSTR ret, UINT cchReturn, HAN
 		CloseHandle(Mailslot);
 
 		// Wait for mode change. Max 3000msec sleep.
-		int counter = 0;
+		/*int counter = 0;
 		while(mode == 1 && counter < 300)
 		{
 			Sleep(10); // Wait for mode change. 
 			counter ++;
-		}
+		}*/
 		mode=2;
 
 		return 0;
