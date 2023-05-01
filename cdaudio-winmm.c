@@ -65,6 +65,7 @@ int numTracks = 0; // default: MAX 99 tracks
 int mciStatusRet = 0;
 int once = 0;
 int StartDelayMs = 1500;
+int AllMusicTracks = 0;
 
 CRITICAL_SECTION cs;
 HANDLE reader = NULL;
@@ -185,6 +186,9 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 		else{
 			StartDelayMs = StartDelay * 1000;
 		}
+
+		// Look for all music tracks option
+		AllMusicTracks = GetPrivateProfileInt("winmm", "AllMusicTracks", 0, ".\\winmm.ini");
 
 		int bMCIDevID = GetPrivateProfileInt("winmm", "MCIDevID", 0, ".\\winmm.ini");
 		if(bMCIDevID){
@@ -816,7 +820,13 @@ MCIERROR WINAPI fake_mciSendCommandA(MCIDEVICEID IDDevice, UINT uMsg, DWORD_PTR 
 				if (parms->dwItem == MCI_CDA_STATUS_TYPE_TRACK) {
 					// ref. by WinQuake 
 					dprintf("> MCI_CDA_STATUS_TYPE_TRACK\n");
-					parms->dwReturn = MCI_CDA_TRACK_AUDIO; 
+					if(AllMusicTracks){
+						parms->dwReturn = MCI_CDA_TRACK_AUDIO;
+					}
+					else{
+						if(parms->dwTrack == 1) parms->dwReturn = MCI_CDA_TRACK_OTHER;
+						else parms->dwReturn = MCI_CDA_TRACK_AUDIO;
+					}
 				}
 
 				if (parms->dwItem == MCI_STATUS_MEDIA_PRESENT)
@@ -1303,8 +1313,15 @@ MCIERROR WINAPI fake_mciSendStringA(LPCTSTR cmd, LPTSTR ret, UINT cchReturn, HAN
 		int track = 0;
 		if (sscanf(cmdbuf, "status %*s type track %d", &track) == 1)
 		{
-			strcpy(ret, "audio");
-			return 0;
+			if(AllMusicTracks){
+				strcpy(ret, "audio");
+				return 0;
+			}
+			else{
+				if(track == 1)strcpy(ret, "other");
+				else strcpy(ret, "audio");
+				return 0;
+			}
 		}
 		if (sscanf(cmdbuf, "status %*s length track %d", &track) == 1)
 		{
