@@ -26,6 +26,12 @@ See: https://github.com/YELLO-belly/ogg-winmm/tree/master/PS-Script
 or: https://github.com/YELLO-belly/ogg-winmm/raw/master/PS-Script/force-winmm-loading.ps1  
 <sub>(right click on link and choose save link as...)</sub>
 
+## cdaudio-winmm player v.1.6.3:
+- cdaudioplr now has an .ini file option to start minimized in the task bar
+- winmm.ini option to force all tracks to be seen as audio. (Useful if a game needs a pure audio CD with no data tracks)
+- Integrated various small fixes from ogg-winmm.
+- Fixed some logic errors mainly for mciSendString method.
+
 ## cdaudio-winmm player v.1.6.2:
 - MCI_PLAY now returns mode=playing without any delay. Previous logic had a waiting counter to make sure that the cdaudio device was actually playing. However although the old logic seemed to work fine it was causing serious unreliability with the game Battlezone2 (at least when using a physical CD in a real DVD/CD-ROM drive).
 
