@@ -1301,6 +1301,13 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 
 	g_hMainWindow = hwnd;
 
+	// Set working directory to module directory: 
+	char szFileName[MAX_PATH];
+	GetModuleFileName(hInstance, szFileName, MAX_PATH);
+	int len = strlen(szFileName);
+	szFileName[len-14] = '\0'; // delete cdaudioplr.exe from string. 
+	SetCurrentDirectory(szFileName);
+
 	// Start minimized
 	int bStartMin = GetPrivateProfileInt("options", "StartMin", 0, ".\\cdaudio_vol.ini");
 	if(bStartMin){
@@ -1311,13 +1318,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 	}
 	
 	UpdateWindow(hwnd);
-
-	// Set working directory to module directory: 
-	char szFileName[MAX_PATH];
-	GetModuleFileName(hInstance, szFileName, MAX_PATH);
-	int len = strlen(szFileName);
-	szFileName[len-14] = '\0'; // delete cdaudioplr.exe from string. 
-	SetCurrentDirectory(szFileName);
 
 	// debug logging 
 	#ifdef _DEBUG
