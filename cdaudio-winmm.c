@@ -408,9 +408,9 @@ MCIERROR WINAPI fake_mciSendCommandA(MCIDEVICEID IDDevice, UINT uMsg, DWORD_PTR 
 			WriteFile(Mailslot, "mci_stop", 64, &BytesWritten, NULL);
 			CloseHandle(Mailslot);
 
-			// Wait for mode change. Max 3000msec sleep.
+			// Wait for mode change. Max 300msec sleep.
 			int counter = 0;
-			while(mode == 2 && counter < 300)
+			while(mode == 2 && counter < 30)
 			{
 				Sleep(10); // Wait for mode change. 
 				counter ++;
@@ -612,9 +612,9 @@ MCIERROR WINAPI fake_mciSendCommandA(MCIDEVICEID IDDevice, UINT uMsg, DWORD_PTR 
 			WriteFile(Mailslot, "mci_play", 64, &BytesWritten, NULL);
 			CloseHandle(Mailslot);
 
-			// Wait for mode change. Max 3000msec sleep.
+			// Wait for mode change. Max 300msec sleep.
 			/*int counter = 0;
-			while(mode == 1 && counter < 300)
+			while(mode == 1 && counter < 30)
 			{
 				Sleep(10); // Wait for mode change. 
 				counter ++;
@@ -635,9 +635,9 @@ MCIERROR WINAPI fake_mciSendCommandA(MCIDEVICEID IDDevice, UINT uMsg, DWORD_PTR 
 			WriteFile(Mailslot, "mci_stop", 64, &BytesWritten, NULL);
 			CloseHandle(Mailslot);
 			
-			// Wait for mode change. Max 3000msec sleep.
+			// Wait for mode change. Max 300msec sleep.
 			int counter = 0;
-			while(mode == 2 && counter < 300)
+			while(mode == 2 && counter < 30)
 			{
 				Sleep(10); // Wait for mode change. 
 				counter ++;
@@ -846,7 +846,7 @@ MCIERROR WINAPI fake_mciSendCommandA(MCIDEVICEID IDDevice, UINT uMsg, DWORD_PTR 
 					}
 					// Wait for response:
 					int counter = 0;
-					while(numTracks == 0 && counter < 500)
+					while(numTracks == 0 && counter < 50)
 					{
 						Sleep(10);
 						counter ++;
@@ -1440,9 +1440,9 @@ MCIERROR WINAPI fake_mciSendStringA(LPCTSTR cmd, LPTSTR ret, UINT cchReturn, HAN
 		WriteFile(Mailslot, mci_seek_string, 64, &BytesWritten, NULL);
 		CloseHandle(Mailslot);
 
-		// Wait for mode change. Max 3000msec sleep.
+		// Wait for mode change. Max 300msec sleep.
 		int counter = 0;
-		while(mode == 2 && counter < 300)
+		while(mode == 2 && counter < 30)
 		{
 			Sleep(10); // Wait for mode change. 
 			counter ++;
@@ -1502,9 +1502,9 @@ MCIERROR WINAPI fake_mciSendStringA(LPCTSTR cmd, LPTSTR ret, UINT cchReturn, HAN
 		WriteFile(Mailslot, mci_play_string, 64, &BytesWritten, NULL);
 		CloseHandle(Mailslot);
 
-		// Wait for mode change. Max 3000msec sleep.
+		// Wait for mode change. Max 300msec sleep.
 		/*int counter = 0;
-		while(mode == 1 && counter < 300)
+		while(mode == 1 && counter < 30)
 		{
 			Sleep(10); // Wait for mode change. 
 			counter ++;
