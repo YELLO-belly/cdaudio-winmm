@@ -26,7 +26,10 @@ See: https://github.com/YELLO-belly/ogg-winmm/tree/master/PS-Script
 or: https://github.com/YELLO-belly/ogg-winmm/raw/master/PS-Script/force-winmm-loading.ps1  
 <sub>(right click on link and choose save link as...)</sub>
 
-## cdaudio-winmm player v.1.6.3:
+## cdaudio-winmm player v.1.6.3(fix) re-upload:
+- **v.1.6.3(fix)** Fixes a small error that caused the "StartMin" cdaudioplr.exe option to not always work.
+- **v.1.6.3(fix)** Trim down the long wait loops from 3 seconds to 300 ms in winmm.dll wrapper.
+- **v.1.6.3(fix)** Redone AutoStart code to use system "start" command instead of ShellExecute.
 - cdaudioplr now has an .ini file option to start minimized in the task bar
 - winmm.ini option to force all tracks to be seen as audio. (Useful if a game needs a pure audio CD with no data tracks)
 - Integrated various small fixes from ogg-winmm.
