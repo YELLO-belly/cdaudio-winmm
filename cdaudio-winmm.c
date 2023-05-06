@@ -64,8 +64,9 @@ int time_format = MCI_FORMAT_MSF;
 int numTracks = 0; // default: MAX 99 tracks 
 int mciStatusRet = 0;
 int once = 0;
-int StartDelayMs = 1500;
+int StartDelayMs = 10;
 int AllMusicTracks = 0;
+int AutoStart = 0;
 
 CRITICAL_SECTION cs;
 HANDLE reader = NULL;
@@ -96,8 +97,8 @@ int reader_main( void )
 		return 0;
 	}
 
-	// Start cdaudio player: 
-	ShellExecuteA(NULL, "open", ".\\mcicda\\cdaudioplr.exe", NULL, NULL, SW_SHOWNOACTIVATE);
+	// Start cdaudio player:
+	//ShellExecuteA(NULL, "open", ".\\mcicda\\cdaudioplr.exe", NULL, NULL, SW_SHOWNOACTIVATE);
 
 	// Loop to read mailslot: 
 	while(ReadFile(Mailslot, buffer, 512, &NumberOfBytesRead, NULL) != 0)
@@ -177,20 +178,26 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 		reader = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)reader_main, NULL, 0, NULL);
 		notifier = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)send_notify_msg_main, NULL, 0, NULL);
 
-		// Read winmm.ini for StartDelay
-		int StartDelay = GetPrivateProfileInt("winmm", "StartDelay", 0, ".\\winmm.ini");
-		if ((StartDelay < 1) || (StartDelay > 9)){
-			StartDelayMs = 10;
-			once = 1;
-		}
-		else{
-			StartDelayMs = StartDelay * 1000;
-		}
+		// Check for auto start option
+		AutoStart = GetPrivateProfileInt("winmm", "AutoStart", 1, ".\\winmm.ini");
 
-		// Look for all music tracks option
+		if(AutoStart){
+			// Read winmm.ini for StartDelay
+			int StartDelay = GetPrivateProfileInt("winmm", "StartDelay", 0, ".\\winmm.ini");
+			if ((StartDelay < 1) || (StartDelay > 9)){
+				StartDelayMs = 10;
+			}
+			else{
+				StartDelayMs = StartDelay * 1000;
+			}
+		}
+		if(!AutoStart)once = 1;
+
+		// Look for the all music tracks option
 		AllMusicTracks = GetPrivateProfileInt("winmm", "AllMusicTracks", 0, ".\\winmm.ini");
 
-		int bMCIDevID = GetPrivateProfileInt("winmm", "MCIDevID", 0, ".\\winmm.ini");
+		// Look for alternate device id option
+		int bMCIDevID = GetPrivateProfileInt("winmm", "MCIDevID", 1, ".\\winmm.ini");
 		if(bMCIDevID){
 			mciOpenParms.lpstrDeviceType = "waveaudio";
 			int MCIERRret = 0;
@@ -217,7 +224,7 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 #endif
 
 		// Read winmm.ini 
-		int bAutoClose = GetPrivateProfileInt("winmm", "AutoClose", 0, ".\\winmm.ini");
+		int bAutoClose = GetPrivateProfileInt("winmm", "AutoClose", 1, ".\\winmm.ini");
 		
 		if(bAutoClose)
 		{
@@ -235,6 +242,7 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 MCIERROR WINAPI fake_mciSendCommandA(MCIDEVICEID IDDevice, UINT uMsg, DWORD_PTR fdwCommand, DWORD_PTR dwParam)
 {
 	if (!once) {
+		system("start /b .\\mcicda\\cdaudioplr.exe");
 		once = 1;
 		Sleep(StartDelayMs); // Sleep a bit to ensure cdaudioplr.exe is initialized.
 	}
@@ -1022,6 +1030,7 @@ MCIERROR WINAPI fake_mciSendCommandA(MCIDEVICEID IDDevice, UINT uMsg, DWORD_PTR 
 MCIERROR WINAPI fake_mciSendStringA(LPCTSTR cmd, LPTSTR ret, UINT cchReturn, HANDLE hwndCallback)
 {
 	if (!once) {
+		system("start /b .\\mcicda\\cdaudioplr.exe");
 		once = 1;
 		Sleep(StartDelayMs); // Sleep a bit to ensure cdaudioplr.exe is initialized.
 	}
@@ -1548,6 +1557,7 @@ MMRESULT WINAPI fake_auxGetVolume(UINT uDeviceID, LPDWORD lpdwVolume)
 MMRESULT WINAPI fake_auxSetVolume(UINT uDeviceID, DWORD dwVolume)
 {
 	if (!once) {
+		system("start /b .\\mcicda\\cdaudioplr.exe");
 		once = 1;
 		Sleep(StartDelayMs); // Sleep a bit to ensure cdaudioplr.exe is initialized.
 	}
