@@ -16,6 +16,7 @@ NOTE:
 - You can start cdaudioplr.exe manually before running the game. Sometimes this may be necessary since the game may query the cd device before the wrapper has time to initialize the player. There is now also a batch file that can be used to make sure that the cdaudioplr.exe is launched before the game:  
 https://raw.githubusercontent.com/YELLO-belly/cdaudio-winmm/master/batch/start_game.cmd  
 <sub>(right click on link and choose save link as...)</sub>  
+A [vbscript](https://raw.githubusercontent.com/YELLO-belly/cdaudio-winmm/master/vbscript/start_game.vbs) is also available...
 - Do not place cdaudioplr.exe and winmm.dll in the same folder!
 - ~~v.0.3 now supports mp3 and wav playback if a music folder is found containing the tracks in the correct format. (track02.mp3/wav ...)~~ No longer available in 1.5.  
 
