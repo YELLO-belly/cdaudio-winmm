@@ -24,8 +24,6 @@ Extra note:
 - Apparently on some machines the local winmm.dll wrapper is ignored and the real system dll is used instead. This may be because some other program has already loaded the winmm.dll library or some system setting forces the use of the real dll. The wrapper can be forced to load by renaming it to for example to winm2.dll and hex editing the program executable to point to this renamed winmm.dll instead.
 - There is now also a PowerShell script available in the sources to help alleviate issues where the wrapper is ignored by Windows.  
 See: https://github.com/YELLO-belly/ogg-winmm/tree/master/PS-Script  
-or: https://github.com/YELLO-belly/ogg-winmm/raw/master/PS-Script/force-winmm-loading.ps1  
-<sub>(right click on link and choose save link as...)</sub>
 
 ## cdaudio-winmm player v.1.6.3(fix) re-upload:
 - **v.1.6.3(fix)** Fixes a small error that caused the "StartMin" cdaudioplr.exe option to not always work.
