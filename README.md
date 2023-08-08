@@ -12,7 +12,7 @@ The trick is to handle the broken MCI mode change by monitoring POSTION and MODE
 - Place cdaudioplr.exe in 'mcicda' -sub-folder.
 - Run the game normally.
 
-NOTE:
+# NOTES:
 - You can start cdaudioplr.exe manually before running the game. Sometimes this may be necessary since the game may query the cd device before the wrapper has time to initialize the player. There is now also a batch file that can be used to make sure that the cdaudioplr.exe is launched before the game:  
 https://raw.githubusercontent.com/YELLO-belly/cdaudio-winmm/master/batch/start_game.cmd  
 <sub>(right click on link and choose save link as...)</sub>  
@@ -20,9 +20,12 @@ A [vbscript](https://raw.githubusercontent.com/YELLO-belly/cdaudio-winmm/master/
 - Do not place cdaudioplr.exe and winmm.dll in the same folder!
 - ~~v.0.3 now supports mp3 and wav playback if a music folder is found containing the tracks in the correct format. (track02.mp3/wav ...)~~ No longer available in 1.5.  
 
-Extra note:
-- Apparently on some machines the local winmm.dll wrapper is ignored and the real system dll is used instead. This may be because some other program has already loaded the winmm.dll library or some system setting forces the use of the real dll. The wrapper can be forced to load by renaming it to for example to winm2.dll and hex editing the program executable to point to this renamed winmm.dll instead.
-- There is now also a PowerShell script available in the sources to help alleviate issues where the wrapper is ignored by Windows.  
+# Extra note:
+- Apparently on some machines the local winmm.dll wrapper is ignored and the real system dll is used instead. This may be because some other program has already loaded the winmm.dll library or some system setting forces the use of the real dll. (For example if the program has an ACT Database entry.) Some possible solutions:
+
+1. Easiest trick is to rename the game executable in order to disable any Microsoft ACT Fixes (or shims) that might prevent loading the warapper dll.
+
+2. The wrapper can also be forced to load by renaming it to for example to winm2.dll and hex editing the program executable to point to this renamed winmm.dll instead. There is now also a PowerShell script available in the sources to help alleviate issues where the wrapper is ignored by Windows.
 See: https://github.com/YELLO-belly/ogg-winmm/tree/master/PS-Script  
 
 ## cdaudio-winmm player v.1.6.3(fix) re-upload:
