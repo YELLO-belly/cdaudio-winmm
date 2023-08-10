@@ -76,6 +76,26 @@ int sendnotify = 0;
 
 int send_notify_msg_main( void )
 {
+	// Opening MCI waveaudio device moved out from DllMain to avoid possible issues (only affecting Windows XP?). Consequently the 
+	// wait flag needed to be set in order to make sure the operation is completed before other MCI commands get processed...
+	//
+	// Look for alternate device id option
+	int bMCIDevID = GetPrivateProfileInt("winmm", "MCIDevID", 1, ".\\winmm.ini");
+	if(bMCIDevID){
+		mciOpenParms.lpstrDeviceType = "waveaudio";
+		int MCIERRret = 0;
+		if (MCIERRret = mciSendCommand(0, MCI_OPEN | MCI_WAIT, MCI_OPEN_TYPE, (DWORD)(LPVOID) &mciOpenParms)){ //Needs MCI_WAIT to run in time!
+			// Failed to open wave device.
+			MAGIC_DEVICEID = 48879;
+			dprintf("Failed to open wave device! Using 0xBEEF as cdaudio id.\r\n");
+		}
+		else{
+			MAGIC_DEVICEID = mciOpenParms.wDeviceID;
+			dprintf("Wave device opened succesfully using cdaudio ID %d for emulation.\r\n",MAGIC_DEVICEID);
+		}
+	}
+
+	
 	while(1){
 		if(sendnotify){
 			SendMessageA((HWND)0xffff, MM_MCINOTIFY, MCI_NOTIFY_SUCCESSFUL, MAGIC_DEVICEID);
@@ -195,7 +215,7 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 
 		// Look for the all music tracks option
 		AllMusicTracks = GetPrivateProfileInt("winmm", "AllMusicTracks", 0, ".\\winmm.ini");
-
+/*
 		// Look for alternate device id option
 		int bMCIDevID = GetPrivateProfileInt("winmm", "MCIDevID", 1, ".\\winmm.ini");
 		if(bMCIDevID){
@@ -210,7 +230,7 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 				MAGIC_DEVICEID = mciOpenParms.wDeviceID;
 				dprintf("Wave device opened succesfully using cdaudio ID %d for emulation.\r\n",MAGIC_DEVICEID);
 			}
-		}
+		}*/
 	}
 
 	if (fdwReason == DLL_PROCESS_DETACH)
